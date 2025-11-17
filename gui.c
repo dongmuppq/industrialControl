@@ -45,11 +45,14 @@ typedef enum
  /**********************
  *  STATIC PROTOTYPES
  **********************/
+static void init_style(void);
 static void add_new_item_event_handler(lv_event_t *e);
 static void update_translater_event_handler(lv_event_t *e);
+static void MQTT_setting_event_handler(lv_event_t *e);
 static void del_item_event_handler(lv_event_t *e);
 static lv_obj_t * colum_obj_create(lv_obj_t *parent);
 static lv_obj_t * component_obj_create(lv_obj_t *parent);
+
 /**********************
  *  STATIC VARIABLES
  **********************/
@@ -75,6 +78,8 @@ static lv_style_t g_style_cont_send_period;
 
 static lv_style_t style_icon;
 static lv_style_t button_style;
+static lv_style_t text_style;
+
 
 // 自定义事件代码，给每个节点的 Send 按钮使用
 static uint32_t MY_LV_EVENT_UPDATE_RPC;     // 更新节点信息事件
@@ -151,7 +156,7 @@ void gui_start(void) {
     lv_obj_set_style_text_font(up_label, &lv_font_montserrat_14, 0);
     lv_obj_add_style(up_btn, &button_style, 0);
     lv_label_set_text(up_label, "MQTT Setting");
-    // lv_obj_add_event_cb(up_btn, MQTT_setting_event_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(up_btn, MQTT_setting_event_handler, LV_EVENT_CLICKED, NULL);
 
 
 }
@@ -182,19 +187,6 @@ void init_style(void) {
     lv_style_set_text_font(&g_style_cont1, &lv_font_montserrat_30);
 
 
-    // 通用按钮样式
-    lv_style_init(&button_style);
-
-    // lv_style_set_bg_color(&button_style, GRAY_BUTTON_COLOR);
-    lv_style_set_bg_opa(&button_style, LV_OPA_COVER);
-
-    lv_style_set_border_width(&button_style, 0);
-    lv_style_set_outline_width(&button_style, 0);
-    lv_style_set_shadow_width(&button_style, 0);
-
-    lv_style_set_radius(&button_style, 8);
-
-    // lv_style_set_text_font(&button_style, &lv_font_montserrat_14);
 
 
     // 操作栏容器背景框样式
@@ -262,7 +254,7 @@ void init_style(void) {
 
     // 通用弹出框样式
     lv_style_init(&g_style_jump_conf);
-    lv_style_set_radius(&g_style_jump_conf, 12);
+    lv_style_set_radius(&g_style_jump_conf, 10);
     lv_style_set_pad_all(&g_style_jump_conf, 0);
     lv_style_set_bg_color(&g_style_jump_conf, GRAY_BG_COLOR);
     lv_style_set_bg_opa(&g_style_jump_conf, LV_OPA_COVER);
@@ -273,6 +265,35 @@ void init_style(void) {
     lv_style_set_shadow_offset_x(&g_style_jump_conf, 0);
     lv_style_set_shadow_offset_y(&g_style_jump_conf, 10);
     lv_style_set_shadow_spread(&g_style_jump_conf, 0);
+
+
+    // 通用按钮样式
+    lv_style_init(&button_style);
+
+    // lv_style_set_bg_color(&button_style, GRAY_BUTTON_COLOR);
+    lv_style_set_bg_opa(&button_style, LV_OPA_COVER);
+
+    lv_style_set_border_width(&button_style, 0);
+    lv_style_set_outline_width(&button_style, 0);
+    lv_style_set_shadow_width(&button_style, 0);
+
+    lv_style_set_radius(&button_style, 10);
+
+    // lv_style_set_text_font(&button_style, &lv_font_montserrat_14);
+
+    // 通用文本框背景样式
+    lv_style_init(&text_style);
+    lv_style_set_bg_color(&text_style, DARK_BG_COLOR); // 深色背景
+    lv_style_set_bg_opa(&text_style, LV_OPA_COVER);
+
+    lv_style_set_border_width(&text_style, 1);
+    lv_style_set_border_color(&text_style, BORDER_COLOR); // 深灰色边框
+    lv_style_set_border_opa(&text_style, LV_OPA_COVER);
+    lv_style_set_outline_width(&text_style, 0);
+    lv_style_set_shadow_width(&text_style, 0);
+
+    lv_style_set_radius(&text_style, 10);
+    lv_style_set_text_color(&text_style, GRENN_FONT_COLOR);
 }
 
 
@@ -340,7 +361,9 @@ void add_new_item_event_handler(lv_event_t *e) {
     lv_obj_t *cont2_x_2_x_ta;
     lv_obj_t *cont2_x_2_x_label;
     lv_obj_t *btn;
-
+    lv_obj_t *dd;
+    lv_obj_t *ta;
+    
     // 创建一行容器
     cont2_x_2_x = colum_obj_create(cont2_x_2);
 
@@ -351,7 +374,7 @@ void add_new_item_event_handler(lv_event_t *e) {
     lv_label_set_text(cont2_x_2_x_label, "MODE");
     lv_obj_set_style_text_color(cont2_x_2_x_label, GRAY_FONT_COLOR, 0);
 
-    lv_obj_t *dd = lv_dropdown_create(cont2_x_2_x_ta);
+    dd = lv_dropdown_create(cont2_x_2_x_ta);
     lv_obj_set_style_bg_color(dd, DARK_BG_COLOR, 0);
     lv_obj_set_style_bg_opa(dd, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(dd, BORDER_COLOR, 0);
@@ -386,7 +409,7 @@ void add_new_item_event_handler(lv_event_t *e) {
     lv_label_set_text(cont2_x_2_x_label, "Device Addr");
     lv_obj_set_style_text_color(cont2_x_2_x_label, GRAY_FONT_COLOR, 0);
 
-    lv_obj_t *ta = lv_textarea_create(cont2_x_2_x_ta);
+    ta = lv_textarea_create(cont2_x_2_x_ta);
     lv_textarea_set_one_line(ta, true);
     lv_textarea_set_accepted_chars(ta, "0123456789ABCDEFabcdef");
     lv_textarea_set_text(ta, "1");
@@ -580,6 +603,11 @@ void update_translater_event_handler(lv_event_t *e) {
     lv_obj_center(confirm_label);
     #endif
 }
+
+void MQTT_setting_event_handler(lv_event_t *e) {
+
+}
+
 
 void del_item_event_handler(lv_event_t *e) {
     lv_obj_t *btn = lv_event_get_target(e);
