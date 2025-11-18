@@ -28,7 +28,7 @@
 #define GRAY_BG_COLOR        lv_color_hex(0x282C34)
 #define BORDER_COLOR         lv_color_hex(0x373c45)
 #define GRAY_BUTTON_COLOR    lv_color_hex(0x1858eb)
-#define GRENN_FONT_COLOR     lv_color_hex(0x00b42a)
+#define GREEN_FONT_COLOR     lv_color_hex(0x00b42a)
 #define GRAY_FONT_COLOR      lv_color_hex(0x9097a2)
 #define BLUE_FONT_COLOR      lv_color_hex(0x165dff)
 #define SHADOW_COLOR         lv_color_hex(0x000000)
@@ -158,7 +158,7 @@ void gui_start(void) {
     lv_label_set_text(up_label, "MQTT Setting");
     lv_obj_add_event_cb(up_btn, MQTT_setting_event_handler, LV_EVENT_CLICKED, NULL);
 
-
+    
 }
 
 void init_style(void) {
@@ -241,8 +241,8 @@ void init_style(void) {
     // 操作框内操作内容样式
     lv_style_init(&g_style_cont_send_period);
     lv_style_set_radius(&g_style_cont_send_period, 0);
-    lv_style_set_pad_all(&g_style_cont_send_period, 3);
-
+    lv_style_set_pad_all(&g_style_cont_send_period, 6);
+    // lv_style_set_pad_column(&g_style_cont_send_period, 30);
 
     // 通用弹出遮盖背景样式
     lv_style_init(&g_style_jump_bg_conf);
@@ -293,7 +293,7 @@ void init_style(void) {
     lv_style_set_shadow_width(&text_style, 0);
 
     lv_style_set_radius(&text_style, 10);
-    lv_style_set_text_color(&text_style, GRENN_FONT_COLOR);
+    lv_style_set_text_color(&text_style, GREEN_FONT_COLOR);
 }
 
 
@@ -326,7 +326,7 @@ void add_new_item_event_handler(lv_event_t *e) {
     lv_obj_t *up_label = lv_label_create(cont2_x_1);
     lv_obj_set_flex_grow(up_label, 1);
     lv_label_set_text(up_label, "Node 1");
-    lv_obj_set_style_text_color(up_label, GRENN_FONT_COLOR, 0);
+    lv_obj_set_style_text_color(up_label, GREEN_FONT_COLOR, 0);
     lv_obj_set_style_text_font(up_label, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_align(up_label, LV_TEXT_ALIGN_LEFT, 0);
 
@@ -363,7 +363,7 @@ void add_new_item_event_handler(lv_event_t *e) {
     lv_obj_t *btn;
     lv_obj_t *dd;
     lv_obj_t *ta;
-    
+
     // 创建一行容器
     cont2_x_2_x = colum_obj_create(cont2_x_2);
 
@@ -375,14 +375,15 @@ void add_new_item_event_handler(lv_event_t *e) {
     lv_obj_set_style_text_color(cont2_x_2_x_label, GRAY_FONT_COLOR, 0);
 
     dd = lv_dropdown_create(cont2_x_2_x_ta);
+    lv_obj_add_style(dd, &text_style, 0);
     lv_obj_set_style_bg_color(dd, DARK_BG_COLOR, 0);
     lv_obj_set_style_bg_opa(dd, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(dd, BORDER_COLOR, 0);
     lv_obj_set_style_border_opa(dd, LV_OPA_COVER, 0);
-    lv_obj_set_width(dd, 70);
+    lv_obj_set_width(dd, 100);
     lv_dropdown_set_options(dd, "RTU\n"
                                 "TCP");
-    lv_obj_set_style_text_color(dd, GRENN_FONT_COLOR, 0);
+    // lv_obj_set_style_text_color(dd, GREEN_FONT_COLOR, 0);
     lv_obj_set_style_text_font(dd, &lv_font_montserrat_14, 0);
 
     // 创建一个容器存放：COM/IP
@@ -395,6 +396,7 @@ void add_new_item_event_handler(lv_event_t *e) {
     btn = lv_button_create(cont2_x_2_x_ta);
     lv_obj_add_style(btn, &button_style, 0);
     lv_obj_set_style_bg_color(btn, BLUE_FONT_COLOR, 0);
+    lv_obj_set_width(btn, 100);
     cont2_x_2_x_label = lv_label_create(btn);
     lv_label_set_text(cont2_x_2_x_label, "Setting");
 
@@ -410,11 +412,12 @@ void add_new_item_event_handler(lv_event_t *e) {
     lv_obj_set_style_text_color(cont2_x_2_x_label, GRAY_FONT_COLOR, 0);
 
     ta = lv_textarea_create(cont2_x_2_x_ta);
+    lv_obj_add_style(ta, &text_style, 0);
     lv_textarea_set_one_line(ta, true);
     lv_textarea_set_accepted_chars(ta, "0123456789ABCDEFabcdef");
     lv_textarea_set_text(ta, "1");
     lv_obj_set_width(ta, 100);
-    lv_obj_set_style_text_color(ta, GRENN_FONT_COLOR, 0);
+
 
     // 创建一个容器存放：寄存器地址标签和文本输入框
     cont2_x_2_x_ta = component_obj_create(cont2_x_2_x);
@@ -423,11 +426,12 @@ void add_new_item_event_handler(lv_event_t *e) {
     lv_label_set_text(cont2_x_2_x_label, "Register Addr");
     lv_obj_set_style_text_color(cont2_x_2_x_label, GRAY_FONT_COLOR, 0);
     ta = lv_textarea_create(cont2_x_2_x_ta);
+    lv_obj_add_style(ta, &text_style, 0);
     lv_textarea_set_one_line(ta, true);
     lv_textarea_set_accepted_chars(ta, "0123456789ABCDEFabcdef");
     lv_textarea_set_text(ta, "1");
     lv_obj_set_width(ta, 100);
-    lv_obj_set_style_text_color(ta, GRENN_FONT_COLOR, 0);
+
 
 
     // 创建一行容器
@@ -445,12 +449,12 @@ void add_new_item_event_handler(lv_event_t *e) {
     lv_obj_set_style_bg_opa(dd, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(dd, BORDER_COLOR, 0);
     lv_obj_set_style_border_opa(dd, LV_OPA_COVER, 0);
-    lv_obj_set_width(dd, 200);
+    lv_obj_set_width(dd, 250);
     lv_dropdown_set_options(dd, "Coils (0x)\n"
                                 "Discrete Inputs (1x)\n"
                                 "Holding Registers (4x)\n"
                                 "Input Registers (3x)");
-    lv_obj_set_style_text_color(dd, GRENN_FONT_COLOR, 0);
+    lv_obj_set_style_text_color(dd, GREEN_FONT_COLOR, 0);
     lv_obj_set_style_text_font(dd, &lv_font_montserrat_14, 0);
 
 
@@ -463,6 +467,8 @@ void add_new_item_event_handler(lv_event_t *e) {
     lv_obj_t *label_send_period;
 
     cb_send_period = lv_checkbox_create(cont2_x_2_x);
+    lv_obj_add_style(cb_send_period, &text_style, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(cb_send_period, GRAY_FONT_COLOR, LV_PART_INDICATOR);
     lv_checkbox_set_text(cb_send_period, "Period");
     lv_obj_set_style_text_color(cb_send_period, GRAY_FONT_COLOR, 0);
 
@@ -471,13 +477,14 @@ void add_new_item_event_handler(lv_event_t *e) {
     // lv_timer_pause(lv_timer_send_period);
     // lv_obj_add_event_cb(cb_send_period, cb_send_period_event_handler, LV_EVENT_VALUE_CHANGED, lv_timer_send_period);
 
-    ta_send_period = lv_textarea_create(cont2_x_2_x); // [1-3-1]
+    ta_send_period = lv_textarea_create(cont2_x_2_x);
+    lv_obj_add_style(ta_send_period, &text_style, 0);
     lv_textarea_set_one_line(ta_send_period, true);
     lv_textarea_set_accepted_chars(ta_send_period, "0123456789");
     lv_textarea_set_text(ta_send_period, "1000");
-    lv_obj_set_size(ta_send_period, 100, 36);
+    lv_obj_set_size(ta_send_period, 80, 36);
     lv_obj_remove_flag(ta_send_period, LV_OBJ_FLAG_SCROLLABLE);
-    label_send_period = lv_label_create(cont2_x_2_x); // [1-3-2]
+    label_send_period = lv_label_create(cont2_x_2_x);
     lv_label_set_text(label_send_period, "ms/Tim");
     lv_obj_set_style_text_color(label_send_period, GRAY_FONT_COLOR, 0);
 
@@ -485,20 +492,64 @@ void add_new_item_event_handler(lv_event_t *e) {
     // 创建一行容器
     cont2_x_2_x = colum_obj_create(cont2_x_2);
 
-    // 创建一个容器存放：开始和停止按钮
-    cont2_x_2_x_ta = component_obj_create(cont2_x_2_x);
-    btn = lv_button_create(cont2_x_2_x_ta);
+    btn = lv_button_create(cont2_x_2_x);
     lv_obj_add_style(btn, &button_style, 0);
     lv_obj_set_style_bg_color(btn, BLUE_FONT_COLOR, 0);
+    lv_obj_set_width(btn, 100);
     cont2_x_2_x_label = lv_label_create(btn);
     lv_label_set_text(cont2_x_2_x_label, "Start");
 
-    btn = lv_button_create(cont2_x_2_x_ta);
+    btn = lv_button_create(cont2_x_2_x);
     lv_obj_add_style(btn, &button_style, 0);
     lv_obj_set_style_bg_color(btn, GRAY_BG_COLOR, 0);
+    lv_obj_set_width(btn, 100);
+    lv_obj_set_style_border_width(btn, 1, 0);
+    lv_obj_set_style_border_color(btn, BORDER_COLOR, 0);
     cont2_x_2_x_label = lv_label_create(btn);
     lv_label_set_text(cont2_x_2_x_label, "Stop");
     /*********************************************************************************************************/
+    // 添加数据显示
+    // 创建一行容器
+    cont2_x_2_x = colum_obj_create(cont2_x_2);
+
+    // 创建一个容器存放：Write value(0x)标签和文本输入框
+    cont2_x_2_x_ta = component_obj_create(cont2_x_2_x);
+
+    cont2_x_2_x_label = lv_label_create(cont2_x_2_x_ta);
+    lv_label_set_text(cont2_x_2_x_label, "Write value(0x)");
+    lv_obj_set_style_text_color(cont2_x_2_x_label, GRAY_FONT_COLOR, 0);
+
+    ta = lv_textarea_create(cont2_x_2_x_ta);
+    lv_obj_add_style(ta, &text_style, 0);
+    lv_textarea_set_one_line(ta, true);
+    lv_textarea_set_accepted_chars(ta, "0123456789");
+    lv_textarea_set_text(ta, "1");
+    lv_obj_set_width(ta, 100);
+    // lv_obj_add_event_cb(ta, ta_event_event_handler, LV_EVENT_ALL, NULL);
+
+    // 创建一个容器存放：Read value(0x)标签和文本输入框
+    cont2_x_2_x_ta = component_obj_create(cont2_x_2_x);
+
+    cont2_x_2_x_label = lv_label_create(cont2_x_2_x_ta); // [2-5-0]
+    lv_label_set_text(cont2_x_2_x_label, "Read value(0x)");
+    lv_obj_set_style_text_color(cont2_x_2_x_label, GRAY_FONT_COLOR, 0);
+
+    ta = lv_textarea_create(cont2_x_2_x_ta);
+    lv_obj_add_style(ta, &text_style, LV_STATE_DISABLED);
+    lv_textarea_set_one_line(ta, true);
+    lv_textarea_set_accepted_chars(ta, "0123456789");
+    lv_textarea_set_text(ta, "FF");
+    lv_obj_set_width(ta, 100);
+    lv_obj_add_state(ta, LV_STATE_DISABLED);
+    // lv_obj_add_event_cb(ta, ta_event_event_handler, LV_EVENT_ALL, cont2_x);
+
+#if 0
+    // 添加图表
+    cont2_x_2_x = colum_obj_create(cont2_x_2);
+    lv_obj_t *chart = lv_chart_create(cont2_x_2_x);
+    lv_obj_set_size(chart, LV_PCT(90), 100);
+    lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
+#endif
 }
 
 lv_obj_t * colum_obj_create(lv_obj_t *parent) {
@@ -508,7 +559,6 @@ lv_obj_t * colum_obj_create(lv_obj_t *parent) {
     lv_obj_add_style(cont2_x_2_x, &g_style_cont_send_period, 0);
     lv_obj_set_flex_flow(cont2_x_2_x, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(cont2_x_2_x, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
-    lv_obj_set_style_pad_column(cont2_x_2_x, 6, 0);
 
     return cont2_x_2_x;
 }
@@ -518,12 +568,13 @@ lv_obj_t * component_obj_create(lv_obj_t *parent) {
     lv_obj_remove_style_all(cont2_x_2_x_ta);
     lv_obj_set_flex_flow(cont2_x_2_x_ta, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(cont2_x_2_x_ta, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
-    lv_obj_set_style_pad_column(cont2_x_2_x_ta, 6, 0);
-    lv_obj_add_style(cont2_x_2_x_ta, &g_style_cont_send_period, 0);
+    // lv_obj_add_style(cont2_x_2_x_ta, &g_style_cont_send_period, 0);
+    lv_obj_set_style_pad_row(cont2_x_2_x_ta, 5, 0);
     lv_obj_set_size(cont2_x_2_x_ta, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
     return cont2_x_2_x_ta;
 }
+
 
 void update_translater_event_handler(lv_event_t *e) {
     // 创建半透明遮罩层
@@ -532,22 +583,25 @@ void update_translater_event_handler(lv_event_t *e) {
     lv_obj_center(mask);
     lv_obj_add_style(mask, &g_style_jump_bg_conf, 0);
 
-    #if 1
+
     // 主弹出框容器
     lv_obj_t *panel = lv_obj_create(mask);
-    lv_obj_set_size(panel, LV_PCT(40), LV_PCT(60));
+    lv_obj_set_size(panel, LV_PCT(50), LV_PCT(50));
     lv_obj_center(panel);
     lv_obj_add_style(panel, &g_style_jump_conf, 0);
+    lv_obj_set_flex_flow(panel, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(panel, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
     lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
 
-    // 标题栏
+    // [1] 标题栏
     lv_obj_t *header = lv_obj_create(panel);
     lv_obj_set_size(header, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_style_bg_color(header, BLUE_FONT_COLOR, 0);
-    lv_obj_set_style_bg_opa(header, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(header, 12, 0);
-    lv_obj_set_style_radius(header, 0, 12);
-    lv_obj_set_style_pad_all(header, 15, 0);
+    // lv_obj_set_style_radius(header, 12, 0);
+    // lv_obj_set_style_radius(header, 0, 12);
+    // lv_obj_set_style_pad_all(header, 15, 0);
+    lv_obj_set_flex_flow(header, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(header, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *title = lv_label_create(header);
@@ -555,53 +609,86 @@ void update_translater_event_handler(lv_event_t *e) {
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_18, 0);
 
-    // 内容区域
-    lv_obj_t *content = lv_obj_create(panel);
-    lv_obj_set_size(content, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(content, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(content, 0, 0);
-    lv_obj_set_style_pad_all(content, 20, 0);
-    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_flex_flow(content, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(content, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    // [2] 文件选择
+    lv_obj_t *file_explorer = lv_file_explorer_create(panel); // [0-1]
+    lv_file_explorer_set_sort(file_explorer, LV_EXPLORER_SORT_KIND);
+    lv_obj_set_size(file_explorer, LV_PCT(100), LV_PCT(70));
+    lv_file_explorer_open_dir(file_explorer, "./");
+    lv_obj_set_style_bg_color(file_explorer, DARK_BG_COLOR, 0);
+    
+    // [3] 内容区域
+    lv_obj_t *cont = lv_obj_create(panel); // [0-2]
+    lv_obj_remove_style_all(cont);
+    lv_obj_set_size(cont, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    // 添加一些示例内容
-    lv_obj_t *info_label = lv_label_create(content);
-    lv_label_set_text(info_label, "Current Version: 1.0.0\nLatest Version: 1.1.0");
-    lv_obj_set_style_text_color(info_label, lv_color_hex(0xc9cdd4), 0);
-    lv_obj_set_style_text_font(info_label, &lv_font_montserrat_14, 0);
+    lv_obj_t *label_show_sel_file = lv_label_create(cont);
+    lv_obj_set_style_text_font(label_show_sel_file, &lv_font_montserrat_18, 0);
+    lv_label_set_text(label_show_sel_file, "Please select a file");
 
-    // 按钮区域
-    lv_obj_t *btn_cont = lv_obj_create(content);
-    lv_obj_set_size(btn_cont, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(btn_cont, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(btn_cont, 0, 0);
-    lv_obj_set_style_pad_all(btn_cont, 0, 0);
-    lv_obj_clear_flag(btn_cont, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_flex_flow(btn_cont, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(btn_cont, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_t *g_label_selected_upgrade_file = lv_label_create(cont);
+    lv_obj_set_style_text_font(g_label_selected_upgrade_file, &lv_font_montserrat_18, 0);
+    lv_label_set_text(g_label_selected_upgrade_file, "test.bin");
+    lv_obj_add_flag(g_label_selected_upgrade_file, LV_OBJ_FLAG_HIDDEN);
 
-    // 取消按钮
-    lv_obj_t *cancel_btn = lv_button_create(btn_cont);
-    lv_obj_set_size(cancel_btn, 100, 40);
-    lv_obj_set_style_bg_color(cancel_btn, lv_color_hex(0x4a4a4a), 0);
-    lv_obj_set_style_radius(cancel_btn, 8, 0);
-    lv_obj_t *cancel_label = lv_label_create(cancel_btn);
-    lv_label_set_text(cancel_label, "Cancel");
-    lv_obj_set_style_text_color(cancel_label, lv_color_white(), 0);
-    lv_obj_center(cancel_label);
-    lv_obj_add_event_cb(cancel_btn, del_item_event_handler, LV_EVENT_CLICKED, NULL);
 
-    // 确认按钮
-    lv_obj_t *confirm_btn = lv_button_create(btn_cont);
-    lv_obj_set_size(confirm_btn, 100, 40);
-    lv_obj_set_style_bg_color(confirm_btn, lv_color_hex(0x165dff), 0);
-    lv_obj_set_style_radius(confirm_btn, 8, 0);
-    lv_obj_t *confirm_label = lv_label_create(confirm_btn);
-    lv_label_set_text(confirm_label, "Update");
-    lv_obj_set_style_text_color(confirm_label, lv_color_white(), 0);
-    lv_obj_center(confirm_label);
+    // [4] 进度条
+    cont = lv_obj_create(panel); // [0-3]
+    lv_obj_remove_style_all(cont);
+    lv_obj_set_size(cont, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *bar = lv_bar_create(cont);
+    lv_bar_set_range(bar, 0, 100);
+    lv_obj_set_size(bar, LV_PCT(100), 16);
+    lv_obj_set_style_radius(bar, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(bar, 0, LV_PART_INDICATOR);
+    // lv_obj_add_event_cb(bar, upgrade_bar_event_cb, LV_EVENT_DRAW_MAIN_END, NULL);
+    
+    #if 1
+    // [5] 按钮区域
+    lv_obj_t *panel_opt = lv_obj_create(panel); // [0-4]
+    lv_obj_remove_style_all(panel_opt);
+    lv_obj_set_size(panel_opt, LV_PCT(100), LV_PCT(20));
+    lv_obj_set_flex_flow(panel_opt, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(panel_opt, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *btn_setting = lv_btn_create(panel_opt);
+    lv_obj_t *label = lv_label_create(btn_setting);
+    lv_obj_set_style_text_color(label, lv_color_hex(0x00ff00), LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(label, lv_palette_main(LV_PALETTE_BLUE), LV_PART_SELECTED);
+    lv_label_set_text_selection_start(label, 0);
+    lv_label_set_text_selection_end(label, 1);
+    lv_label_set_text(label, LV_SYMBOL_SETTINGS " Settings");
+
+    // lv_obj_t *setting_page = upgrade_com_conf_page_init(); /////////////////////
+    // lv_obj_add_event_cb(btn_setting, show_conf_event_handler, LV_EVENT_CLICKED, setting_page);
+
+    lv_obj_t *btn_ok = lv_btn_create(panel_opt);
+    label = lv_label_create(btn_ok);
+    lv_obj_set_style_text_color(label, lv_color_hex(0x00ff00), LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(label, lv_palette_main(LV_PALETTE_BLUE), LV_PART_SELECTED);
+    lv_label_set_text_selection_start(label, 0);
+    lv_label_set_text_selection_end(label, 1);
+    lv_label_set_text(label, LV_SYMBOL_OK " Upgrade");
+
+    lv_obj_t *btn_Cancel = lv_btn_create(panel_opt);
+    label = lv_label_create(btn_Cancel);
+    lv_obj_set_style_text_color(label, lv_color_hex(0xff0000), LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(label, lv_palette_main(LV_PALETTE_BLUE), LV_PART_SELECTED);
+    lv_label_set_text_selection_start(label, 0);
+    lv_label_set_text_selection_end(label, 1);
+    lv_label_set_text(label, LV_SYMBOL_CLOSE " Exit   ");
+
+    // lv_obj_set_user_data(btn_ok, setting_page); // set user data
+    // lv_obj_add_event_cb(file_explorer, file_explorer_event_handler, LV_EVENT_ALL, label_show_sel_file);
+    // lv_obj_add_event_cb(btn_ok, file_explorer_upgrade_btn_event_handler, LV_EVENT_CLICKED, bar);
+    // lv_obj_add_event_cb(btn_Cancel, file_explorer_upgrade_btn_event_handler, LV_EVENT_CLICKED, bar);
+
     #endif
+
 }
 
 void MQTT_setting_event_handler(lv_event_t *e) {
