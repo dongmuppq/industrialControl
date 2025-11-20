@@ -15,6 +15,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "rpc.h"
 #include "gui.h"
 
 /*********************
@@ -32,6 +33,7 @@
 #define GRAY_FONT_COLOR      lv_color_hex(0x9097a2)
 #define BLUE_FONT_COLOR      lv_color_hex(0x165dff)
 #define SHADOW_COLOR         lv_color_hex(0x000000)
+
 /**********************
  *      TYPEDEFS
  **********************/
@@ -45,58 +47,57 @@ typedef enum
  /**********************
  *  STATIC PROTOTYPES
  **********************/
+// 主界面创建相关函数
 static void init_style(void);
 static void add_new_item_event_handler(lv_event_t *e);
 static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_addr, int reg_addr, char *reg_type, int period, int channel);
 static lv_obj_t * colum_obj_create(lv_obj_t *parent);
 static lv_obj_t * component_obj_create(lv_obj_t *parent);
 static void del_item_event_handler(lv_event_t *e);
-
+// 周期发送相关函数
 static void send_period_timer(lv_timer_t *timer);
 static void cb_send_period_event_handler(lv_event_t *e);
-static void dd_reg_type_event_handler(lv_event_t *e);
-static void btn_send_event_handler(lv_event_t *e);
-
+// COM/IP 配置页面相关函数
 static lv_obj_t *com_or_ip_conf_page_init(lv_obj_t *user_data, char *port_info, uint16_t port_type, int channel);
 static void show_conf_event_handler(lv_event_t *e);
-
-static void update_translater_event_handler(lv_event_t *e);
-static void file_explorer_upgrade_btn_event_handler(lv_event_t *e);
 static void com_conf_opt_btn_event_handler(lv_event_t *e);
-
+// 升级页面相关函数
+static void update_translater_event_handler(lv_event_t *e);
+static void upgrade_bar_event_cb(lv_event_t *e);
+static void file_explorer_event_handler(lv_event_t *e);
+static void file_explorer_upgrade_btn_event_handler(lv_event_t *e);
+static void update_progress_timer(lv_timer_t *timer);
+// MQTT 配置页面相关函数
 static void MQTT_setting_event_handler(lv_event_t *e);
-
+// 事件处理相关函数
+static void dd_reg_type_event_handler(lv_event_t *e);
 static void ta_event_event_handler(lv_event_t *e);
-
-
-
+static void btn_send_event_handler(lv_event_t *e);
+static void update_rpc_data(lv_obj_t *cont1, lv_obj_t *cont2);
 
 /**********************
  *  STATIC VARIABLES
  **********************/
+// RPC 客户端 ID
 static int g_socket_client_id;
-
+// 显示尺寸
 static disp_size_t disp_size;
 static const lv_font_t *font_large;
 static const lv_font_t *font_normal;
 
 // 全局键盘对象
 static lv_obj_t *g_kb;
+// 全局标签对象，显示所选择的升级文件路径
+static lv_obj_t *g_label_selected_upgrade_file;
 
 // 背景框样式变量
 static lv_style_t g_style_cont1;
-static lv_style_t g_style_cont1_x;
 static lv_style_t g_style_cont2;
 static lv_style_t g_style_cont2_x;
 static lv_style_t g_style_cont2_x_x;
-static lv_style_t g_style_cont2_x_2_x;
-static lv_style_t g_style_cont2_x_3_x;
 static lv_style_t g_style_jump_bg_conf;
 static lv_style_t g_style_jump_conf;
-
 static lv_style_t g_style_cont_send_period;
-
-static lv_style_t style_icon;
 static lv_style_t button_style;
 static lv_style_t text_style;
 
@@ -104,6 +105,19 @@ static lv_style_t text_style;
 // 自定义事件代码，给每个节点的 Send 按钮使用
 static uint32_t MY_LV_EVENT_UPDATE_RPC;     // 更新节点信息事件
 static uint32_t MY_LV_EVENT_READ_PERIOD;    // 周期发送事件
+
+
+static int g_bUpdatingStatus = 0;
+
+static int isUpdating(void)
+{
+    return g_bUpdatingStatus;
+}
+
+static void SetUpdatingStatus(int on)
+{
+    g_bUpdatingStatus = on;
+}
 
 void gui_start(void) {
     lv_obj_t *cont1;
@@ -192,15 +206,14 @@ void gui_start(void) {
     lv_label_set_text(up_label, "MQTT Setting");
     lv_obj_add_event_cb(up_btn, MQTT_setting_event_handler, LV_EVENT_CLICKED, NULL);
 
-#if 0
+#ifdef RPC_ENABLE
     int cnt = rpc_get_point_count(g_socket_client_id);
     LV_LOG_USER("point count = %d", cnt);
     if (cnt > 0) {
         int err;
         int pre_point = -1;
         PointInfo tInfo;
-        for (int i = 0; i < cnt; i++)
-        {
+        for (int i = 0; i < cnt; i++) {
             err = rpc_get_next_point(g_socket_client_id, pre_point, &tInfo);
             if (!err)
             {
@@ -224,6 +237,12 @@ void gui_start(void) {
     // }
 }
 
+
+/*
+ * @brief 初始化样式
+ * @param 无
+ * @return 无
+ */
 void init_style(void) {
     // 顶栏容器背景框样式
     lv_style_init(&g_style_cont1);
@@ -241,7 +260,7 @@ void init_style(void) {
     lv_style_set_border_side(&g_style_cont1, LV_BORDER_SIDE_BOTTOM);
 
     lv_style_set_outline_width(&g_style_cont1, 0);
-    // lv_style_set_outline_opa(&g_style_cont1_x, LV_OPA_TRANSP);
+
 
     lv_style_set_shadow_width(&g_style_cont1, 0);
 
@@ -365,7 +384,7 @@ static void add_new_item_event_handler(lv_event_t *e) {
     // lv_obj_t * btn = lv_event_get_target(e);
     lv_obj_t *cont2 = lv_event_get_user_data(e);
 
-    add_new_item(cont2, -1, "COM1,115200,8n1", 4, 0, "1x", 300, DEFAULT_CHAEENL_INT);   
+    add_new_item(cont2, -1, "COM2,115200,8n1", 2, 2, "1x", 1000, DEFAULT_CHAEENL_INT);   
 }
 
 /*
@@ -462,7 +481,7 @@ static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_a
     lv_obj_t *ta;
 
 #if 1
-    // 创建一行容器
+    // 创建一行容器[0]
     cont2_x_2_x = colum_obj_create(cont2_x_2);
 
     // 创建一个容器存放：modbus 通讯方式选择
@@ -510,7 +529,7 @@ static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_a
     lv_obj_set_user_data(com_conf_page, cont2_x); // set user data
     lv_obj_add_event_cb(btn, show_conf_event_handler, LV_EVENT_CLICKED, com_conf_page);
 
-    // 创建一行容器
+    // 创建一行容器[1]
     cont2_x_2_x = colum_obj_create(cont2_x_2);
 
     // 创建一个容器存放：设备地址标签和文本输入框
@@ -520,11 +539,13 @@ static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_a
     lv_label_set_text(cont2_x_2_x_label, "Device Addr");
     lv_obj_set_style_text_color(cont2_x_2_x_label, GRAY_FONT_COLOR, 0);
 
+    memset(tmp_str, 0, sizeof(tmp_str));
+    lv_snprintf(tmp_str, sizeof(tmp_str), "%d", dev_addr);
     ta = lv_textarea_create(cont2_x_2_x_ta);
     lv_obj_add_style(ta, &text_style, 0);
     lv_textarea_set_one_line(ta, true);
     lv_textarea_set_accepted_chars(ta, "0123456789ABCDEF");
-    lv_textarea_set_text(ta, "1");
+    lv_textarea_set_text(ta, tmp_str);
     lv_obj_set_width(ta, 100);
     lv_obj_set_user_data(ta, cont2_x); // set user data
     lv_obj_add_event_cb(ta, ta_event_event_handler, LV_EVENT_ALL, NULL);
@@ -537,17 +558,20 @@ static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_a
     lv_label_set_text(cont2_x_2_x_label, "Register Addr");
     lv_obj_set_style_text_color(cont2_x_2_x_label, GRAY_FONT_COLOR, 0);
     ta = lv_textarea_create(cont2_x_2_x_ta);
+
+    memset(tmp_str, 0, sizeof(tmp_str));
+    lv_snprintf(tmp_str, sizeof(tmp_str), "%d", reg_addr);
     lv_obj_add_style(ta, &text_style, 0);
     lv_textarea_set_one_line(ta, true);
     lv_textarea_set_accepted_chars(ta, "0123456789ABCDEF");
-    lv_textarea_set_text(ta, "1");
+    lv_textarea_set_text(ta, tmp_str);
     lv_obj_set_width(ta, 100);
     lv_obj_set_user_data(ta, cont2_x); // set user data
     lv_obj_add_event_cb(ta, ta_event_event_handler, LV_EVENT_ALL, NULL);
 
 
 
-    // 创建一行容器
+    // 创建一行容器[2]
     cont2_x_2_x = colum_obj_create(cont2_x_2);
 
     // 创建一个容器存放：功能码选择
@@ -579,10 +603,10 @@ static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_a
     else if (strstr(reg_type, "3x"))
         lv_dropdown_set_selected(dd, 3);
 
-    // 创建一行容器
+    // 创建一行容器[3]
     cont2_x_2_x = colum_obj_create(cont2_x_2);
 
-    // 创建一个容器存放：周期发送标签和文本输入框
+    // 创建周期发送标签和文本输入框
     lv_obj_t *cb_send_period;
     lv_obj_t *ta_send_period;
     lv_obj_t *label_send_period;
@@ -599,11 +623,13 @@ static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_a
     lv_timer_pause(lv_timer_send_period);
     lv_obj_add_event_cb(cb_send_period, cb_send_period_event_handler, LV_EVENT_VALUE_CHANGED, lv_timer_send_period);
     // 创建文本输入框，用于输入周期时间（ms）
+    memset(tmp_str, 0, sizeof(tmp_str));
+    lv_snprintf(tmp_str, sizeof(tmp_str), "%d", period);
     ta_send_period = lv_textarea_create(cont2_x_2_x);
     lv_obj_add_style(ta_send_period, &text_style, 0);
     lv_textarea_set_one_line(ta_send_period, true);
     lv_textarea_set_accepted_chars(ta_send_period, "0123456789");
-    lv_textarea_set_text(ta_send_period, "1000");
+    lv_textarea_set_text(ta_send_period, tmp_str);
     lv_obj_set_size(ta_send_period, 80, 36);
     lv_obj_remove_flag(ta_send_period, LV_OBJ_FLAG_SCROLLABLE);
     label_send_period = lv_label_create(cont2_x_2_x);
@@ -613,7 +639,7 @@ static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_a
     lv_obj_add_event_cb(ta_send_period, ta_event_event_handler, LV_EVENT_ALL, lv_timer_send_period);
     lv_obj_add_event_cb(btn_del_item, del_item_event_handler, LV_EVENT_CLICKED, lv_timer_send_period);
 
-    // 创建一行容器
+    // 创建一行容器[4]
     cont2_x_2_x = colum_obj_create(cont2_x_2);
 
     btn = lv_button_create(cont2_x_2_x);
@@ -638,7 +664,7 @@ static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_a
     lv_label_set_text(cont2_x_2_x_label, "Stop");
     /*********************************************************************************************************/
     // 添加数据显示
-    // 创建一行容器
+    // 创建一行容器[5]
     cont2_x_2_x = colum_obj_create(cont2_x_2);
 
     // 创建一个容器存放：Write value(0x)标签和文本输入框
@@ -682,6 +708,11 @@ static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_a
 #endif
 }
 
+/*
+ * @brief 创建一个con2_x_2_x行容器
+ * @param cont2_x_2 父容器
+ * @return 新创建的行容器
+ */
 lv_obj_t * colum_obj_create(lv_obj_t *parent) {
     lv_obj_t * cont2_x_2_x = lv_obj_create(parent);
     lv_obj_remove_style_all(cont2_x_2_x);
@@ -693,6 +724,11 @@ lv_obj_t * colum_obj_create(lv_obj_t *parent) {
     return cont2_x_2_x;
 }
 
+/*
+ * @brief 创建一个con2_x_2_x_ta组件容器
+ * @param cont2_x_2_x 父容器
+ * @return 新创建的组件容器
+ */
 lv_obj_t * component_obj_create(lv_obj_t *parent) {
     lv_obj_t * cont2_x_2_x_ta = lv_obj_create(parent);
     lv_obj_remove_style_all(cont2_x_2_x_ta);
@@ -705,8 +741,10 @@ lv_obj_t * component_obj_create(lv_obj_t *parent) {
     return cont2_x_2_x_ta;
 }
 
-
-void del_item_event_handler(lv_event_t *e) {
+/*
+ * @brief 删除节点按钮事件处理函数
+ */
+static void del_item_event_handler(lv_event_t *e) {
     int point;
     lv_obj_t *label;
 
@@ -731,6 +769,9 @@ void del_item_event_handler(lv_event_t *e) {
 #endif
 }
 
+/*
+ * @brief 周期发送定时器回调函数
+ */
 static void send_period_timer(lv_timer_t *timer)
 {
     char str_tmp[64];
@@ -741,12 +782,16 @@ static void send_period_timer(lv_timer_t *timer)
 
     btn_send = lv_timer_get_user_data(timer);
 
-    // if (!isUpdating()) /* wei */
-    // {
+    if (!isUpdating()) /* wei */
+    {
         lv_obj_send_event(btn_send, MY_LV_EVENT_READ_PERIOD, NULL);
-    // }
+    }
 }
 
+
+/*
+ * @brief 周期发送勾选框事件处理函数
+ */
 static void cb_send_period_event_handler(lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
@@ -772,6 +817,9 @@ static void cb_send_period_event_handler(lv_event_t *e)
 }
 
 
+/*
+ * @brief Function选择事件处理函数
+ */
 static void dd_reg_type_event_handler(lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
@@ -795,73 +843,10 @@ static void dd_reg_type_event_handler(lv_event_t *e)
     }
 }
 
-static void btn_send_event_handler(lv_event_t *e)
-{
-#if 0
-    char str_tmp[64];
-    int val_read;
-    int val_write;
-    int point;
-    lv_obj_t *label;
-    lv_obj_t *dd;
-    lv_obj_t *chart;
-    lv_obj_t *ta_read;
-    lv_obj_t *ta_write;
 
-    lv_obj_t *cont1;
-    lv_obj_t *cont2;
-
-    lv_event_code_t code = lv_event_get_code(e);
-
-    cont1 = lv_event_get_user_data(e);
-    cont2 = lv_obj_get_user_data(cont1);
-
-    /* 按钮被点击时会进入处理
-       或者如果勾选了周期发送框，那么会通过定时器周期给按钮发送 MY_LV_EVENT_READ_PERIOD 事件
-    */
-    if (code == LV_EVENT_CLICKED || code == MY_LV_EVENT_READ_PERIOD)
-    {
-        chart = lv_obj_get_child(cont1, 3);
-        label = lv_obj_get_child(cont1, 0);
-        point = atoi(lv_label_get_text(label));
-
-        dd = lv_obj_get_child(cont1, 2); // reg type
-        dd = lv_obj_get_child(dd, 3);
-        dd = lv_obj_get_child(dd, 1);
-
-        ta_write = lv_obj_get_child(cont1, 2);
-        ta_write = lv_obj_get_child(ta_write, 4);
-        ta_write = lv_obj_get_child(ta_write, 1);
-        val_write = atoi(lv_textarea_get_text(ta_write));
-
-        ta_read = lv_obj_get_child(cont1, 2);
-        ta_read = lv_obj_get_child(ta_read, 5);
-        ta_read = lv_obj_get_child(ta_read, 1);
-
-        lv_dropdown_get_selected_str(dd, str_tmp, sizeof(str_tmp));
-        if (!(strstr(str_tmp, "1x")) || !(strstr(str_tmp, "3x")))
-        {
-            //printf("rpc_write_point: %d\n", val_write);
-            if (code == LV_EVENT_CLICKED)
-                rpc_write_point(g_socket_client_id, point, val_write);
-        }
-        rpc_read_point(g_socket_client_id, point, &val_read);
-
-        memset(str_tmp, 0, sizeof(str_tmp));
-        lv_snprintf(str_tmp, sizeof(str_tmp), "%d", val_read);
-        lv_textarea_set_text(ta_read, str_tmp);
-        lv_chart_set_next_value(chart, lv_chart_get_series_next(chart, NULL), val_read);
-    }
-    // 一些配置修改会给按钮发送 MY_LV_EVENT_UPDATE_RPC 事件
-    else if (code == MY_LV_EVENT_UPDATE_RPC)
-    {
-        update_rpc_data(cont1, cont2);
-    }
-#endif
-}
-
-
-
+/*
+ * @brief 显示COM/IP配置页面按钮事件处理函数
+ */
 static void show_conf_event_handler(lv_event_t *e) {
     lv_event_code_t code = lv_event_get_code(e);
     lv_obj_t *btn = lv_event_get_target(e);
@@ -873,6 +858,14 @@ static void show_conf_event_handler(lv_event_t *e) {
     }
 }
 
+/*
+ * @brief 创建COM/IP配置页面
+ * @param user_data    父容器对象
+ * @param port_info    端口信息字符串
+ * @param port_type    端口类型，0:RTU, 1:TCP
+ * @param channel      H5上哪个通道
+ * @return 创建的配置页面对象
+ */
 static lv_obj_t *com_or_ip_conf_page_init(lv_obj_t *user_data, char *port_info, uint16_t port_type, int channel) {
     lv_obj_t *ta;
     lv_obj_t *dd;
@@ -935,7 +928,7 @@ static lv_obj_t *com_or_ip_conf_page_init(lv_obj_t *user_data, char *port_info, 
 
         str0++;
         stop[0] = *str0;
-    }
+    } else {}
 
     
     // 创建半透明遮罩层
@@ -947,7 +940,11 @@ static lv_obj_t *com_or_ip_conf_page_init(lv_obj_t *user_data, char *port_info, 
 
     // 主弹出框容器
     lv_obj_t *panel = lv_obj_create(mask);
-    lv_obj_set_size(panel, LV_PCT(25), LV_PCT(40));
+    if (port_type == 2) {   // upgrade config
+        lv_obj_set_size(panel, LV_PCT(25), LV_PCT(46));
+    } else {                // com/ip config
+        lv_obj_set_size(panel, LV_PCT(25), LV_PCT(40));
+    }
     lv_obj_align(panel, LV_ALIGN_TOP_MID, 0, 150);
     lv_obj_add_style(panel, &g_style_jump_conf, 0);
     lv_obj_set_flex_flow(panel, LV_FLEX_FLOW_COLUMN);
@@ -1121,6 +1118,27 @@ static lv_obj_t *com_or_ip_conf_page_init(lv_obj_t *user_data, char *port_info, 
     lv_textarea_set_text(ta, tmp_str);
     lv_obj_add_event_cb(ta, ta_event_event_handler, LV_EVENT_ALL, NULL);
 
+
+    /* Upgrade mode */
+    if (port_type == 2) {
+        lv_obj_t *panel_upgrade_mode = lv_obj_create(panel); // [0-3]
+        lv_obj_remove_style_all(panel_upgrade_mode);
+        lv_obj_set_size(panel_upgrade_mode, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_flex_flow(panel_upgrade_mode, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(panel_upgrade_mode, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+        label = lv_label_create(panel_upgrade_mode); // [0-3-0]
+        lv_label_set_text(label, "Upgrade mode");
+         lv_obj_set_style_text_color(label, GRAY_FONT_COLOR, 0);
+
+        dd = lv_dropdown_create(panel_upgrade_mode); // [0-3-1]
+        lv_obj_add_style(dd, &text_style, 0);
+        lv_dropdown_set_options(dd,
+                                "UART\nNETWORK");
+        lv_dropdown_set_selected(dd, 0);
+    }
+
+
     /* Opt Btn */
     lv_obj_t *panel_opt = lv_obj_create(panel); // [0-8]
     lv_obj_remove_style_all(panel_opt);
@@ -1155,6 +1173,10 @@ static lv_obj_t *com_or_ip_conf_page_init(lv_obj_t *user_data, char *port_info, 
     return mask;
 }
 
+
+/*
+ * @brief COM/IP配置页面确定/取消按钮事件处理函数
+ */
 static void com_conf_opt_btn_event_handler(lv_event_t *e) {
     lv_obj_t *btn = lv_event_get_target(e);
     lv_obj_t *mask = lv_event_get_user_data(e);
@@ -1166,22 +1188,383 @@ static void com_conf_opt_btn_event_handler(lv_event_t *e) {
 
     if (strstr(label_str, "OK")) {
         lv_obj_t *btn_send;
-        if (cont2_x)
-        {
+        if (cont2_x) {
             btn_send = lv_obj_get_child(cont2_x, 2); // cont2_x_2
             if (btn_send)
                 btn_send = lv_obj_get_child(btn_send, 4);
             if (btn_send)
                 btn_send = lv_obj_get_child(btn_send, 0);
+            if (btn_send)
+                lv_obj_send_event(btn_send, MY_LV_EVENT_UPDATE_RPC, NULL);
         }
-        if (btn_send)
-            lv_obj_send_event(btn_send, MY_LV_EVENT_UPDATE_RPC, NULL);
     } else if (strstr(label_str, "Cancel")) {
         // TODO
-        lv_obj_delete_async(mask);
+
+    }
+    // 关闭配置页面
+    lv_obj_add_flag(mask, LV_OBJ_FLAG_HIDDEN);
+}
+
+
+/*
+ * @brief 固件升级页面事件处理函数
+ */
+static void update_translater_event_handler(lv_event_t *e) {
+    // 创建半透明遮罩层
+    lv_obj_t *mask = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(mask, LV_PCT(100), LV_PCT(100));
+    lv_obj_center(mask);
+    lv_obj_add_style(mask, &g_style_jump_bg_conf, 0);
+
+
+    // 主弹出框容器
+    lv_obj_t *panel = lv_obj_create(mask);
+    lv_obj_set_size(panel, LV_PCT(50), LV_PCT(50));
+    lv_obj_center(panel);
+    lv_obj_add_style(panel, &g_style_jump_conf, 0);
+    lv_obj_set_flex_flow(panel, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(panel, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+    lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
+
+    // [1] 标题栏
+    lv_obj_t *header = lv_obj_create(panel);
+    lv_obj_set_size(header, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_color(header, BLUE_FONT_COLOR, 0);
+    // lv_obj_set_style_radius(header, 12, 0);
+    // lv_obj_set_style_radius(header, 0, 12);
+    // lv_obj_set_style_pad_all(header, 15, 0);
+    lv_obj_set_flex_flow(header, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(header, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *title = lv_label_create(header);
+    lv_label_set_text(title, "Firmware Update");
+    lv_obj_set_style_text_color(title, lv_color_white(), 0);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_18, 0);
+
+    // [2] 文件选择
+    lv_obj_t *file_explorer = lv_file_explorer_create(panel); // [0-1]
+    lv_file_explorer_set_sort(file_explorer, LV_EXPLORER_SORT_KIND);
+    lv_obj_set_size(file_explorer, LV_PCT(100), LV_PCT(70));
+    lv_file_explorer_open_dir(file_explorer, "./");
+    // lv_obj_set_style_bg_color(file_explorer, DARK_BG_COLOR, LV_PART_MAIN | LV_PART_ITEMS);
+    // lv_obj_set_style_text_color(file_explorer, lv_color_white(), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    // [3] 内容区域
+    lv_obj_t *cont = lv_obj_create(panel); // [0-2]
+    lv_obj_remove_style_all(cont);
+    lv_obj_set_size(cont, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *label_show_sel_file = lv_label_create(cont);
+    lv_obj_set_style_text_font(label_show_sel_file, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(label_show_sel_file, lv_color_white(), 0);
+    lv_label_set_text(label_show_sel_file, "Please select a file");
+
+    g_label_selected_upgrade_file = lv_label_create(cont);
+    lv_obj_set_style_text_font(g_label_selected_upgrade_file, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(g_label_selected_upgrade_file, lv_color_white(), 0);
+    lv_label_set_text(g_label_selected_upgrade_file, "test.bin");
+    lv_obj_add_flag(g_label_selected_upgrade_file, LV_OBJ_FLAG_HIDDEN);
+
+
+    // [4] 进度条
+    cont = lv_obj_create(panel); // [0-3]
+    lv_obj_remove_style_all(cont);
+    lv_obj_set_size(cont, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *bar = lv_bar_create(cont);
+    lv_bar_set_range(bar, 0, 100);
+    lv_obj_set_size(bar, LV_PCT(100), 16);
+    lv_obj_set_style_radius(bar, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(bar, 0, LV_PART_INDICATOR);
+    lv_obj_add_event_cb(bar, upgrade_bar_event_cb, LV_EVENT_DRAW_MAIN_END, NULL);
+    
+    #if 1
+    // [5] 按钮区域
+    lv_obj_t *panel_opt = lv_obj_create(panel); // [0-4]
+    lv_obj_remove_style_all(panel_opt);
+    lv_obj_set_size(panel_opt, LV_PCT(100), LV_PCT(20));
+    lv_obj_set_flex_flow(panel_opt, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(panel_opt, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_style_pad_column(panel_opt, 30, 0);
+
+
+    lv_obj_t *btn_setting = lv_btn_create(panel_opt);
+    lv_obj_add_style(btn_setting, &button_style, 0);
+    lv_obj_t *label = lv_label_create(btn_setting);
+    lv_obj_set_style_text_color(label, lv_color_hex(0x00ff00), LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(label, lv_palette_main(LV_PALETTE_BLUE), LV_PART_SELECTED);
+    lv_label_set_text_selection_start(label, 0);
+    lv_label_set_text_selection_end(label, 1);
+    lv_label_set_text(label, LV_SYMBOL_SETTINGS " Settings");
+
+    lv_obj_t *setting_page = com_or_ip_conf_page_init(NULL, NULL, 2, 0);
+    lv_obj_add_event_cb(btn_setting, show_conf_event_handler, LV_EVENT_CLICKED, setting_page);
+
+    lv_obj_t *btn_ok = lv_btn_create(panel_opt);
+    lv_obj_add_style(btn_ok, &button_style, 0);
+    label = lv_label_create(btn_ok);
+    lv_obj_set_style_text_color(label, lv_color_hex(0x00ff00), LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(label, lv_palette_main(LV_PALETTE_BLUE), LV_PART_SELECTED);
+    lv_label_set_text_selection_start(label, 0);
+    lv_label_set_text_selection_end(label, 1);
+    lv_label_set_text(label, LV_SYMBOL_OK " Upgrade");
+
+    lv_obj_t *btn_Cancel = lv_btn_create(panel_opt);
+    lv_obj_add_style(btn_Cancel, &button_style, 0);
+    label = lv_label_create(btn_Cancel);
+    lv_obj_set_style_text_color(label, lv_color_hex(0xff0000), LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(label, lv_palette_main(LV_PALETTE_BLUE), LV_PART_SELECTED);
+    lv_label_set_text_selection_start(label, 0);
+    lv_label_set_text_selection_end(label, 1);
+    lv_label_set_text(label, LV_SYMBOL_CLOSE " Exit   ");
+
+    lv_obj_set_user_data(btn_ok, setting_page); // 将设置界面传递给升级按钮用于升级参数获取
+    lv_obj_add_event_cb(file_explorer, file_explorer_event_handler, LV_EVENT_ALL, label_show_sel_file);
+    lv_obj_add_event_cb(btn_ok, file_explorer_upgrade_btn_event_handler, LV_EVENT_CLICKED, bar);
+    lv_obj_add_event_cb(btn_Cancel, file_explorer_upgrade_btn_event_handler, LV_EVENT_CLICKED, bar);
+
+    #endif
+}
+
+/*
+ * @brief 升级进度条进度数值显示事件回调函数
+ */
+static void upgrade_bar_event_cb(lv_event_t *e) {
+    lv_obj_t *obj = lv_event_get_target(e);
+    lv_event_code_t code = lv_event_get_code(e);
+
+    if (code == LV_EVENT_DRAW_MAIN_END)
+    {
+        lv_draw_label_dsc_t label_dsc;
+        lv_draw_label_dsc_init(&label_dsc);
+        label_dsc.font = LV_FONT_DEFAULT;
+
+        char buf[8];
+        lv_snprintf(buf, sizeof(buf), "%d", (int)lv_bar_get_value(obj));
+
+        lv_point_t txt_size;
+        lv_text_get_size(&txt_size, buf, label_dsc.font, label_dsc.letter_space, label_dsc.line_space, LV_COORD_MAX,
+                         label_dsc.flag);
+
+        lv_area_t txt_area;
+        txt_area.x1 = 0;
+        txt_area.x2 = txt_size.x - 1;
+        txt_area.y1 = 0;
+        txt_area.y2 = txt_size.y - 1;
+
+        lv_bar_t *bar = (lv_bar_t *)obj;
+        const lv_area_t *indic_area = &bar->indic_area;
+
+        /*If the indicator is long enough put the text inside on the right*/
+        if (lv_area_get_width(indic_area) > txt_size.x + 20)
+        {
+            lv_area_align(indic_area, &txt_area, LV_ALIGN_RIGHT_MID, -10, 0);
+            label_dsc.color = lv_color_white();
+        }
+        /*If the indicator is still short put the text out of it on the right*/
+        else
+        {
+            lv_area_align(indic_area, &txt_area, LV_ALIGN_OUT_RIGHT_MID, 10, 0);
+            label_dsc.color = lv_color_black();
+        }
+        label_dsc.text = buf;
+        label_dsc.text_local = true;
+        lv_layer_t *layer = lv_event_get_layer(e);
+        lv_draw_label(layer, &label_dsc, &txt_area);
     }
 }
 
+/*
+ * @brief 文件浏览器事件处理函数
+ */
+static void file_explorer_event_handler(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *file_explorer = lv_event_get_target(e);
+    lv_obj_t *label = lv_event_get_user_data(e);
+
+    if (code == LV_EVENT_VALUE_CHANGED)
+    {
+        const char *cur_path = lv_file_explorer_get_current_path(file_explorer);
+        const char *sel_fn = lv_file_explorer_get_selected_file_name(file_explorer);
+        LV_LOG_USER("%s%s", cur_path, sel_fn);
+        lv_label_set_text_fmt(label, "Selected file: %s%s", cur_path, sel_fn);
+        lv_label_set_text_fmt(g_label_selected_upgrade_file, "%s%s", cur_path, sel_fn);
+    }
+}
+
+
+static lv_timer_t *bar_timer = NULL;
+/*
+ * @brief 固件升级页面升级/退出按钮事件处理函数
+ */
+static void file_explorer_upgrade_btn_event_handler(lv_event_t *e) {
+    lv_obj_t *btn = lv_event_get_target(e);
+    lv_obj_t *bar = lv_event_get_user_data(e);
+    lv_obj_t *label = lv_obj_get_child(btn, 0);
+
+    lv_obj_t *panel = lv_obj_get_parent(btn);
+    panel = lv_obj_get_parent(panel);
+    panel = lv_obj_get_parent(panel);
+
+    char *label_str = lv_label_get_text(label);
+
+    lv_bar_set_value(bar, 0, LV_ANIM_OFF);
+    if (strstr(label_str, "Upgrade")) {
+        lv_obj_t *setting_page_panel_item;
+        lv_obj_t *ta_com_port;
+        lv_obj_t *ta_baudrate;
+        lv_obj_t *dd_data_bits;
+        lv_obj_t *dd_parity;
+        lv_obj_t *dd_stop_bits;
+        lv_obj_t *ta_ip_addr;
+        lv_obj_t *ta_ip_port;
+        lv_obj_t *ta_dev_addr;
+        lv_obj_t *ta_dev_channel;
+        lv_obj_t *dd_upgrade_mode;
+
+        char str_data_bit[8];
+        char str_stop_bit[8];
+        char str_parity[8];
+        char str_upgrade_mode[8];
+        UpdateInfo tUpdateInfo;
+
+        setting_page_panel_item = lv_obj_get_user_data(btn);
+        setting_page_panel_item = lv_obj_get_child(setting_page_panel_item, 0);
+
+        ta_com_port = lv_obj_get_child(setting_page_panel_item, 1);
+        ta_com_port = lv_obj_get_child(ta_com_port, 1);
+
+        ta_baudrate = lv_obj_get_child(setting_page_panel_item, 2);
+        ta_baudrate = lv_obj_get_child(ta_baudrate, 1);
+
+        dd_data_bits = lv_obj_get_child(setting_page_panel_item, 3);
+        dd_data_bits = lv_obj_get_child(dd_data_bits, 1);
+        lv_dropdown_get_selected_str(dd_data_bits, str_data_bit, sizeof(str_data_bit));
+
+        dd_parity = lv_obj_get_child(setting_page_panel_item, 4);
+        dd_parity = lv_obj_get_child(dd_parity, 1);
+        lv_dropdown_get_selected_str(dd_parity, str_parity, sizeof(str_parity));
+
+        dd_stop_bits = lv_obj_get_child(setting_page_panel_item, 5);
+        dd_stop_bits = lv_obj_get_child(dd_stop_bits, 1);
+        lv_dropdown_get_selected_str(dd_stop_bits, str_stop_bit, sizeof(str_stop_bit));
+
+        ta_ip_addr = lv_obj_get_child(setting_page_panel_item, 6);
+        ta_ip_addr = lv_obj_get_child(ta_ip_addr, 1);
+
+        ta_ip_port = lv_obj_get_child(setting_page_panel_item, 7);
+        ta_ip_port = lv_obj_get_child(ta_ip_port, 1);
+
+        ta_dev_addr = lv_obj_get_child(setting_page_panel_item, 8);
+        ta_dev_addr = lv_obj_get_child(ta_dev_addr, 1);
+
+        ta_dev_channel = lv_obj_get_child(setting_page_panel_item, 9);
+        ta_dev_channel = lv_obj_get_child(ta_dev_channel, 1);
+
+        dd_upgrade_mode = lv_obj_get_child(setting_page_panel_item, 10);
+        dd_upgrade_mode = lv_obj_get_child(dd_upgrade_mode, 1);
+        lv_dropdown_get_selected_str(dd_upgrade_mode, str_upgrade_mode, sizeof(str_upgrade_mode));
+
+        if (strstr(str_upgrade_mode, "UART")) {
+            lv_snprintf(tUpdateInfo.port_info, sizeof(tUpdateInfo.port_info), "%s,%s,%s%s%s",
+                        lv_textarea_get_text(ta_com_port),
+                        lv_textarea_get_text(ta_baudrate),
+                        str_data_bit,
+                        str_parity,
+                        str_stop_bit);
+
+        }
+		else /* "NETWORK" */ {
+            printf("Upgrade mode: %s, ip add: %s, ip port:%s\n", str_upgrade_mode, lv_textarea_get_text(ta_ip_addr), lv_textarea_get_text(ta_ip_port));
+            lv_snprintf(tUpdateInfo.port_info, sizeof(tUpdateInfo.port_info), "%s:%s",
+                        lv_textarea_get_text(ta_ip_addr), lv_textarea_get_text(ta_ip_port));
+		}
+
+        lv_snprintf(tUpdateInfo.file, sizeof(tUpdateInfo.file), "%s", lv_label_get_text(g_label_selected_upgrade_file));
+        tUpdateInfo.channel = atoi(lv_textarea_get_text(ta_dev_channel));
+        tUpdateInfo.dev_addr = atoi(lv_textarea_get_text(ta_dev_addr));
+
+        SetUpdatingStatus(1); /* wei */
+#if RPC_ENABLE
+        rpc_start_update(g_socket_client_id, &tUpdateInfo);
+#endif
+        lv_obj_add_state(btn, LV_STATE_DISABLED);
+        lv_obj_remove_local_style_prop(bar, LV_STYLE_BG_COLOR, LV_PART_INDICATOR);
+        bar_timer = lv_timer_create(update_progress_timer, 10, bar);
+    }
+    else if (strstr(label_str, "Exit")) {
+        if (!isUpdating()) {
+            // TODO
+            if (bar_timer != NULL)
+            {
+                lv_timer_delete(bar_timer);
+                bar_timer = NULL;
+            }
+
+            // btn = lv_obj_get_parent(btn);
+            // btn = lv_obj_get_child(btn, 1);
+            // lv_obj_clear_state(btn, LV_STATE_DISABLED);
+            // SetUpdatingStatus(0); /* wei */
+            lv_obj_delete_async(panel);
+        } else {
+            LV_LOG_USER("Updating in progress, cannot exit!");
+        }
+    }
+}
+
+/*
+ * @brief 固件升级进度条定时器回调函数
+ */
+static void update_progress_timer(lv_timer_t *timer)
+{
+    lv_obj_t *bar = lv_timer_get_user_data(timer);
+    int32_t bar_curren_value = lv_bar_get_value(bar);
+    int32_t bar_max_value = lv_bar_get_max_value(bar);
+
+#ifdef RPC_ENABLE
+    int32_t update_pecent = rpc_get_update_percent(g_socket_client_id);
+
+    // lv_bar_set_value(bar, (bar_curren_value + lv_rand(0, 10)), LV_ANIM_ON);
+    lv_bar_set_value(bar, update_pecent == -1 ? 0 : update_pecent , LV_ANIM_ON);
+#else
+    int32_t update_pecent = bar_curren_value + lv_rand(0, 2);
+    lv_bar_set_value(bar, update_pecent, LV_ANIM_ON);
+#endif
+
+    // lv_timer_set_period(timer, lv_rand(0, 400));
+    if (update_pecent >= bar_max_value || update_pecent == -1)
+    {
+        lv_obj_set_style_bg_color(bar, lv_palette_main(LV_PALETTE_GREEN), LV_PART_INDICATOR);
+        lv_obj_t *btn = lv_obj_get_parent(bar);
+        btn = lv_obj_get_parent(btn);
+        btn = lv_obj_get_child(btn, 4);
+        btn = lv_obj_get_child(btn, 1);
+
+        lv_obj_clear_state(btn, LV_STATE_DISABLED);
+        SetUpdatingStatus(0); /* wei */
+        lv_timer_delete(timer);
+        bar_timer = NULL;
+    }
+}
+
+
+/*
+ * @brief MQTT设置页面事件处理函数
+ */
+static void MQTT_setting_event_handler(lv_event_t *e) {
+
+}
+
+
+
+/*
+ * @brief 文本输入框事件处理函数
+ */
 static void ta_event_event_handler(lv_event_t *e) {
     lv_obj_t *kb = g_kb;
     lv_obj_t *cont;
@@ -1239,240 +1622,215 @@ static void ta_event_event_handler(lv_event_t *e) {
 }
 
 
-static void update_translater_event_handler(lv_event_t *e) {
-    // 创建半透明遮罩层
-    lv_obj_t *mask = lv_obj_create(lv_layer_top());
-    lv_obj_set_size(mask, LV_PCT(100), LV_PCT(100));
-    lv_obj_center(mask);
-    lv_obj_add_style(mask, &g_style_jump_bg_conf, 0);
-
-
-    // 主弹出框容器
-    lv_obj_t *panel = lv_obj_create(mask);
-    lv_obj_set_size(panel, LV_PCT(50), LV_PCT(50));
-    lv_obj_center(panel);
-    lv_obj_add_style(panel, &g_style_jump_conf, 0);
-    lv_obj_set_flex_flow(panel, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(panel, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
-    lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
-
-    // [1] 标题栏
-    lv_obj_t *header = lv_obj_create(panel);
-    lv_obj_set_size(header, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_color(header, BLUE_FONT_COLOR, 0);
-    // lv_obj_set_style_radius(header, 12, 0);
-    // lv_obj_set_style_radius(header, 0, 12);
-    // lv_obj_set_style_pad_all(header, 15, 0);
-    lv_obj_set_flex_flow(header, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(header, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *title = lv_label_create(header);
-    lv_label_set_text(title, "Firmware Update");
-    lv_obj_set_style_text_color(title, lv_color_white(), 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_18, 0);
-
-    // [2] 文件选择
-    lv_obj_t *file_explorer = lv_file_explorer_create(panel); // [0-1]
-    lv_file_explorer_set_sort(file_explorer, LV_EXPLORER_SORT_KIND);
-    lv_obj_set_size(file_explorer, LV_PCT(100), LV_PCT(70));
-    lv_file_explorer_open_dir(file_explorer, "./");
-    lv_obj_set_style_bg_color(file_explorer, DARK_BG_COLOR, 0);
-    // lv_obj_set_style_text_color(file_explorer, lv_color_white(), LV_PART_MAIN | LV_STATE_DEFAULT);
-
-    // [3] 内容区域
-    lv_obj_t *cont = lv_obj_create(panel); // [0-2]
-    lv_obj_remove_style_all(cont);
-    lv_obj_set_size(cont, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
-    lv_obj_t *label_show_sel_file = lv_label_create(cont);
-    lv_obj_set_style_text_font(label_show_sel_file, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(label_show_sel_file, lv_color_white(), 0);
-    lv_label_set_text(label_show_sel_file, "Please select a file");
-
-    lv_obj_t *g_label_selected_upgrade_file = lv_label_create(cont);
-    lv_obj_set_style_text_font(g_label_selected_upgrade_file, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(g_label_selected_upgrade_file, lv_color_white(), 0);
-    lv_label_set_text(g_label_selected_upgrade_file, "test.bin");
-    // lv_obj_add_flag(g_label_selected_upgrade_file, LV_OBJ_FLAG_HIDDEN);
-
-
-    // [4] 进度条
-    cont = lv_obj_create(panel); // [0-3]
-    lv_obj_remove_style_all(cont);
-    lv_obj_set_size(cont, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
-    lv_obj_t *bar = lv_bar_create(cont);
-    lv_bar_set_range(bar, 0, 100);
-    lv_obj_set_size(bar, LV_PCT(100), 16);
-    lv_obj_set_style_radius(bar, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(bar, 0, LV_PART_INDICATOR);
-    // lv_obj_add_event_cb(bar, upgrade_bar_event_cb, LV_EVENT_DRAW_MAIN_END, NULL);
-    
-    #if 1
-    // [5] 按钮区域
-    lv_obj_t *panel_opt = lv_obj_create(panel); // [0-4]
-    lv_obj_remove_style_all(panel_opt);
-    lv_obj_set_size(panel_opt, LV_PCT(100), LV_PCT(20));
-    lv_obj_set_flex_flow(panel_opt, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(panel_opt, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-    lv_obj_set_style_pad_column(panel_opt, 30, 0);
-
-
-    lv_obj_t *btn_setting = lv_btn_create(panel_opt);
-    lv_obj_add_style(btn_setting, &button_style, 0);
-    lv_obj_t *label = lv_label_create(btn_setting);
-    lv_obj_set_style_text_color(label, lv_color_hex(0x00ff00), LV_PART_SELECTED);
-    lv_obj_set_style_bg_color(label, lv_palette_main(LV_PALETTE_BLUE), LV_PART_SELECTED);
-    lv_label_set_text_selection_start(label, 0);
-    lv_label_set_text_selection_end(label, 1);
-    lv_label_set_text(label, LV_SYMBOL_SETTINGS " Settings");
-
-    // lv_obj_t *setting_page = upgrade_com_conf_page_init(); /////////////////////
-    // lv_obj_add_event_cb(btn_setting, show_conf_event_handler, LV_EVENT_CLICKED, setting_page);
-
-    lv_obj_t *btn_ok = lv_btn_create(panel_opt);
-    lv_obj_add_style(btn_ok, &button_style, 0);
-    label = lv_label_create(btn_ok);
-    lv_obj_set_style_text_color(label, lv_color_hex(0x00ff00), LV_PART_SELECTED);
-    lv_obj_set_style_bg_color(label, lv_palette_main(LV_PALETTE_BLUE), LV_PART_SELECTED);
-    lv_label_set_text_selection_start(label, 0);
-    lv_label_set_text_selection_end(label, 1);
-    lv_label_set_text(label, LV_SYMBOL_OK " Upgrade");
-
-    lv_obj_t *btn_Cancel = lv_btn_create(panel_opt);
-    lv_obj_add_style(btn_Cancel, &button_style, 0);
-    label = lv_label_create(btn_Cancel);
-    lv_obj_set_style_text_color(label, lv_color_hex(0xff0000), LV_PART_SELECTED);
-    lv_obj_set_style_bg_color(label, lv_palette_main(LV_PALETTE_BLUE), LV_PART_SELECTED);
-    lv_label_set_text_selection_start(label, 0);
-    lv_label_set_text_selection_end(label, 1);
-    lv_label_set_text(label, LV_SYMBOL_CLOSE " Exit   ");
-
-    // lv_obj_set_user_data(btn_ok, setting_page); // set user data
-    // lv_obj_add_event_cb(file_explorer, file_explorer_event_handler, LV_EVENT_ALL, label_show_sel_file);
-    lv_obj_add_event_cb(btn_ok, file_explorer_upgrade_btn_event_handler, LV_EVENT_CLICKED, bar);
-    lv_obj_add_event_cb(btn_Cancel, file_explorer_upgrade_btn_event_handler, LV_EVENT_CLICKED, bar);
-
-    #endif
-}
-
-
-
-static void file_explorer_upgrade_btn_event_handler(lv_event_t *e)
+/*
+ * @brief send按钮事件处理函数
+ */
+static void btn_send_event_handler(lv_event_t *e)
 {
-    lv_obj_t *btn = lv_event_get_target(e);
-    lv_obj_t *bar = lv_event_get_user_data(e);
-    lv_obj_t *label = lv_obj_get_child(btn, 0);
+#if 1
+    char str_tmp[64];
+    int val_read;
+    int val_write;
+    int point;
+    lv_obj_t *label;
+    lv_obj_t *dd;
+    lv_obj_t *chart;
+    lv_obj_t *ta_read;
+    lv_obj_t *ta_write;
 
-    lv_obj_t *panel = lv_obj_get_parent(btn);
-    panel = lv_obj_get_parent(panel);
-    panel = lv_obj_get_parent(panel);
+    lv_obj_t *cont1;
+    lv_obj_t *cont2;
 
-    char *label_str = lv_label_get_text(label);
+    lv_event_code_t code = lv_event_get_code(e);
 
-    lv_bar_set_value(bar, 0, LV_ANIM_OFF);
-    if (strstr(label_str, "Upgrade"))
+    cont1 = lv_event_get_user_data(e);   // cont2_x
+    cont2 = lv_obj_get_user_data(cont1); // com_or_ip_conf_page
+
+    /* 按钮被点击时会进入处理
+     * 或者如果勾选了周期发送框，那么会通过定时器周期给按钮发送 MY_LV_EVENT_READ_PERIOD 事件
+     */
+    if (code == LV_EVENT_CLICKED || code == MY_LV_EVENT_READ_PERIOD)
     {
-#if 0
-        lv_obj_t *setting_page_panel_item;
-        lv_obj_t *ta_com_port;
-        lv_obj_t *ta_baudrate;
-        lv_obj_t *dd_data_bits;
-        lv_obj_t *dd_parity;
-        lv_obj_t *dd_stop_bits;
-        lv_obj_t *ta_ip_addr;
-        lv_obj_t *ta_ip_port;
-        lv_obj_t *ta_dev_addr;
-        lv_obj_t *ta_dev_channel;
-        lv_obj_t *dd_upgrade_mode;
+        // chart = lv_obj_get_child(cont1, 3);
+        label = lv_obj_get_child(cont1, 0);
+        point = atoi(lv_label_get_text(label));
 
-        char str_data_bit[8];
-        char str_stop_bit[8];
-        char str_parity[8];
-        char str_upgrade_mode[8];
-        UpdateInfo tUpdateInfo;
+        dd = lv_obj_get_child(cont1, 2); // fuction code dropdown
+        dd = lv_obj_get_child(dd, 2);
+        dd = lv_obj_get_child(dd, 0);
 
-        setting_page_panel_item = lv_obj_get_user_data(btn);
-        setting_page_panel_item = lv_obj_get_child(setting_page_panel_item, 0);
+        ta_write = lv_obj_get_child(cont1, 2);
+        ta_write = lv_obj_get_child(ta_write, 5);
+        ta_write = lv_obj_get_child(ta_write, 0);
+        ta_write = lv_obj_get_child(ta_write, 1);
+        val_write = atoi(lv_textarea_get_text(ta_write));
 
-        ta_com_port = lv_obj_get_child(setting_page_panel_item, 1);
-        ta_com_port = lv_obj_get_child(ta_com_port, 1);
+        ta_read = lv_obj_get_child(cont1, 2);
+        ta_read = lv_obj_get_child(ta_read, 5);
+        ta_read = lv_obj_get_child(ta_read, 1);
+        ta_read = lv_obj_get_child(ta_read, 1);
 
-        ta_baudrate = lv_obj_get_child(setting_page_panel_item, 2);
-        ta_baudrate = lv_obj_get_child(ta_baudrate, 1);
-
-        dd_data_bits = lv_obj_get_child(setting_page_panel_item, 3);
-        dd_data_bits = lv_obj_get_child(dd_data_bits, 1);
-        lv_dropdown_get_selected_str(dd_data_bits, str_data_bit, sizeof(str_data_bit));
-
-        dd_parity = lv_obj_get_child(setting_page_panel_item, 4);
-        dd_parity = lv_obj_get_child(dd_parity, 1);
-        lv_dropdown_get_selected_str(dd_parity, str_parity, sizeof(str_parity));
-
-        dd_stop_bits = lv_obj_get_child(setting_page_panel_item, 5);
-        dd_stop_bits = lv_obj_get_child(dd_stop_bits, 1);
-        lv_dropdown_get_selected_str(dd_stop_bits, str_stop_bit, sizeof(str_stop_bit));
-
-        ta_ip_addr = lv_obj_get_child(setting_page_panel_item, 6);
-        ta_ip_addr = lv_obj_get_child(ta_ip_addr, 1);
-
-        ta_ip_port = lv_obj_get_child(setting_page_panel_item, 7);
-        ta_ip_port = lv_obj_get_child(ta_ip_port, 1);
-
-        ta_dev_addr = lv_obj_get_child(setting_page_panel_item, 8);
-        ta_dev_addr = lv_obj_get_child(ta_dev_addr, 1);
-
-        ta_dev_channel = lv_obj_get_child(setting_page_panel_item, 9);
-        ta_dev_channel = lv_obj_get_child(ta_dev_channel, 1);
-
-        dd_upgrade_mode = lv_obj_get_child(setting_page_panel_item, 10);
-        dd_upgrade_mode = lv_obj_get_child(dd_upgrade_mode, 1);
-        lv_dropdown_get_selected_str(dd_upgrade_mode, str_upgrade_mode, sizeof(str_upgrade_mode));
-
-        if (strstr(str_upgrade_mode, "UART"))
+#ifdef RPC_ENABLE
+        lv_dropdown_get_selected_str(dd, str_tmp, sizeof(str_tmp));
+        if (!(strstr(str_tmp, "1x")) || !(strstr(str_tmp, "3x")))
         {
-            lv_snprintf(tUpdateInfo.port_info, sizeof(tUpdateInfo.port_info), "%s,%s,%s%s%s",
-                        lv_textarea_get_text(ta_com_port),
-                        lv_textarea_get_text(ta_baudrate),
-                        str_data_bit,
-                        str_parity,
-                        str_stop_bit);
-
+            //printf("rpc_write_point: %d\n", val_write);
+            if (code == LV_EVENT_CLICKED)
+                rpc_write_point(g_socket_client_id, point, val_write);
         }
-		else /* "NETWORK" */
-		{
-            printf("Upgrade mode: %s, ip add: %s, ip port:%s\n", str_upgrade_mode, lv_textarea_get_text(ta_ip_addr), lv_textarea_get_text(ta_ip_port));
-            lv_snprintf(tUpdateInfo.port_info, sizeof(tUpdateInfo.port_info), "%s:%s",
-                        lv_textarea_get_text(ta_ip_addr), lv_textarea_get_text(ta_ip_port));
-		}
-
-        lv_snprintf(tUpdateInfo.file, sizeof(tUpdateInfo.file), "%s", lv_label_get_text(g_label_selected_upgrade_file));
-        tUpdateInfo.channel = atoi(lv_textarea_get_text(ta_dev_channel));
-        tUpdateInfo.dev_addr = atoi(lv_textarea_get_text(ta_dev_addr));
-
-        SetUpdatingStatus(1); /* wei */
-        rpc_start_update(g_socket_client_id, &tUpdateInfo);
-        lv_obj_add_state(btn, LV_STATE_DISABLED);
-        lv_obj_remove_local_style_prop(bar, LV_STYLE_BG_COLOR, LV_PART_INDICATOR);
-        bar_timer = lv_timer_create(update_progress_timer, 10, bar);
+        rpc_read_point(g_socket_client_id, point, &val_read);
+#else 
+        // 模拟读数据,随机值
+        val_read = rand() % 100;
 #endif
+        memset(str_tmp, 0, sizeof(str_tmp));
+        lv_snprintf(str_tmp, sizeof(str_tmp), "%d", val_read);
+        lv_textarea_set_text(ta_read, str_tmp);
+        // lv_chart_set_next_value(chart, lv_chart_get_series_next(chart, NULL), val_read);
     }
-    else if (strstr(label_str, "Exit"))
+    // 一些配置修改会给按钮发送 MY_LV_EVENT_UPDATE_RPC 事件
+    else if (code == MY_LV_EVENT_UPDATE_RPC)
     {
-        // TODO
-        lv_obj_delete_async(panel);
-
+        update_rpc_data(cont1, cont2);
     }
+#endif
 }
 
+#if 1
+/*
+ * @brief 更新RPC配置信息函数
+ */
+static void update_rpc_data(lv_obj_t *cont1, lv_obj_t *cont2)
+{
+    uint16_t port_type = 0; // 0:RTU, 1:TCP
 
-static void MQTT_setting_event_handler(lv_event_t *e) {
+    lv_obj_t *label;
+    lv_obj_t *cont2_x_2;
+    lv_obj_t *cont2_x_2_x;
+    lv_obj_t *cont2_x_2_x_ta;
+    lv_obj_t *cont_com_or_ip_conf_page;
 
+    lv_obj_t *cb_rtu_or_tcp;
+    lv_obj_t *ta_send_period;
+
+    lv_obj_t *ta_dev_addr;
+    lv_obj_t *ta_reg_addr;
+    lv_obj_t *dd_reg_type; // functon_code
+
+    lv_obj_t *ta_com_port;
+    lv_obj_t *ta_baudrate;
+    lv_obj_t *dd_data_bit;
+    lv_obj_t *dd_stop_bit;
+    lv_obj_t *dd_parity;
+    lv_obj_t *ta_remote_ip;
+    lv_obj_t *ta_remote_port;
+    lv_obj_t *ta_dev_channel;
+
+    int rpc_fd;
+
+    char tmp_str[64];
+    char port_info[128];
+    char str_data_bit[8];
+    char str_stop_bit[8];
+    char str_parity[8];
+    int dev_addr;
+    int reg_addr;
+    char reg_type[8];
+    int period;
+    int channel = 0;
+
+    ////////////////////////////////////////////
+    label = lv_obj_get_child(cont1, 0);
+    rpc_fd = atoi(lv_label_get_text(label));
+
+    cont2_x_2 = lv_obj_get_child(cont1, 2);
+
+    cont2_x_2_x = lv_obj_get_child(cont2_x_2, 0);
+    cont2_x_2_x_ta = lv_obj_get_child(cont2_x_2_x, 0);
+    cb_rtu_or_tcp = lv_obj_get_child(cont2_x_2_x_ta, 1);
+    lv_memzero(tmp_str, sizeof(tmp_str));
+    lv_dropdown_get_selected_str(cb_rtu_or_tcp, tmp_str, sizeof(tmp_str));
+
+    if (strcmp(tmp_str, "RTU")) {
+        port_type = 0;
+    } else if (strcmp(tmp_str, "TCP")) {
+        port_type = 1;
+    }
+
+    cont2_x_2_x = lv_obj_get_child(cont2_x_2, 3);
+    ta_send_period = lv_obj_get_child(cont2_x_2_x, 1);
+    period = atoi(lv_textarea_get_text(ta_send_period)),
+
+    cont2_x_2_x = lv_obj_get_child(cont2_x_2, 1);
+    cont2_x_2_x_ta = lv_obj_get_child(cont2_x_2_x, 0);
+    ta_dev_addr = lv_obj_get_child(cont2_x_2_x_ta, 1);
+    dev_addr = atoi(lv_textarea_get_text(ta_dev_addr)),
+
+    cont2_x_2_x_ta = lv_obj_get_child(cont2_x_2_x, 1);
+    ta_reg_addr = lv_obj_get_child(cont2_x_2_x_ta, 1);
+    reg_addr = atoi(lv_textarea_get_text(ta_reg_addr)),
+
+    cont2_x_2_x = lv_obj_get_child(cont2_x_2, 2);
+    cont2_x_2_x_ta = lv_obj_get_child(cont2_x_2_x, 0);
+    dd_reg_type = lv_obj_get_child(cont2_x_2_x_ta, 1);
+    lv_memzero(tmp_str, sizeof(tmp_str));
+    lv_dropdown_get_selected_str(dd_reg_type, tmp_str, sizeof(tmp_str));
+    if (strstr(tmp_str, "0x"))
+        lv_snprintf(reg_type, sizeof(reg_type), "0x");
+    else if (strstr(tmp_str, "1x"))
+        lv_snprintf(reg_type, sizeof(reg_type), "1x");
+    else if (strstr(tmp_str, "3x"))
+        lv_snprintf(reg_type, sizeof(reg_type), "3x");
+    else if (strstr(tmp_str, "4x"))
+        lv_snprintf(reg_type, sizeof(reg_type), "4x");
+
+    ////////////////////////////////////////////////
+    cont_com_or_ip_conf_page = lv_obj_get_child(cont2, 0);
+
+    ta_com_port = lv_obj_get_child(cont_com_or_ip_conf_page, 1);
+    ta_com_port = lv_obj_get_child(ta_com_port, 1);
+
+    ta_baudrate = lv_obj_get_child(cont_com_or_ip_conf_page, 2);
+    ta_baudrate = lv_obj_get_child(ta_baudrate, 1);
+
+    dd_data_bit = lv_obj_get_child(cont_com_or_ip_conf_page, 3);
+    dd_data_bit = lv_obj_get_child(dd_data_bit, 1);
+    lv_dropdown_get_selected_str(dd_data_bit, str_data_bit, sizeof(str_data_bit));
+
+    dd_stop_bit = lv_obj_get_child(cont_com_or_ip_conf_page, 4);
+    dd_stop_bit = lv_obj_get_child(dd_stop_bit, 1);
+    lv_dropdown_get_selected_str(dd_stop_bit, str_stop_bit, sizeof(str_stop_bit));
+
+    dd_parity = lv_obj_get_child(cont_com_or_ip_conf_page, 5);
+    dd_parity = lv_obj_get_child(dd_parity, 1);
+    lv_dropdown_get_selected_str(dd_parity, str_parity, sizeof(str_parity));
+
+    ta_remote_ip = lv_obj_get_child(cont_com_or_ip_conf_page, 6);
+    ta_remote_ip = lv_obj_get_child(ta_remote_ip, 1);
+
+    ta_remote_port = lv_obj_get_child(cont_com_or_ip_conf_page, 7);
+    ta_remote_port = lv_obj_get_child(ta_remote_port, 1);
+
+    ta_dev_channel = lv_obj_get_child(cont_com_or_ip_conf_page, 8);
+    ta_dev_channel = lv_obj_get_child(ta_dev_channel, 1);
+
+    if (port_type == 1)
+        lv_snprintf(port_info, sizeof(port_info), "%s:%s",
+                    lv_textarea_get_text(ta_remote_ip),
+                    lv_textarea_get_text(ta_remote_port));
+    else
+        lv_snprintf(port_info, sizeof(port_info), "%s,%s,%s%s%s",
+                    lv_textarea_get_text(ta_com_port),
+                    lv_textarea_get_text(ta_baudrate),
+                    str_data_bit,
+                    str_parity,
+                    str_stop_bit);
+
+    channel = atoi(lv_textarea_get_text(ta_dev_channel));
+
+#ifdef RPC_ENABLE
+    // LV_LOG_USER("point: %d, port_info: %s", rpc_fd, port_info);
+    rpc_modify_point(g_socket_client_id, rpc_fd, port_info, channel, dev_addr, reg_addr, reg_type, period);
+#endif
 }
-
-
+#endif
