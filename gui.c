@@ -243,7 +243,7 @@ void gui_start(void) {
  * @param 无
  * @return 无
  */
-void init_style(void) {
+static void init_style(void) {
     // 顶栏容器背景框样式
     lv_style_init(&g_style_cont1);
 
@@ -713,7 +713,7 @@ static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_a
  * @param cont2_x_2 父容器
  * @return 新创建的行容器
  */
-lv_obj_t * colum_obj_create(lv_obj_t *parent) {
+static lv_obj_t * colum_obj_create(lv_obj_t *parent) {
     lv_obj_t * cont2_x_2_x = lv_obj_create(parent);
     lv_obj_remove_style_all(cont2_x_2_x);
     lv_obj_set_size(cont2_x_2_x, LV_PCT(100), LV_SIZE_CONTENT);
@@ -729,7 +729,7 @@ lv_obj_t * colum_obj_create(lv_obj_t *parent) {
  * @param cont2_x_2_x 父容器
  * @return 新创建的组件容器
  */
-lv_obj_t * component_obj_create(lv_obj_t *parent) {
+static lv_obj_t * component_obj_create(lv_obj_t *parent) {
     lv_obj_t * cont2_x_2_x_ta = lv_obj_create(parent);
     lv_obj_remove_style_all(cont2_x_2_x_ta);
     lv_obj_set_flex_flow(cont2_x_2_x_ta, LV_FLEX_FLOW_COLUMN);
