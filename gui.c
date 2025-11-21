@@ -11,6 +11,9 @@
  *****************************************************************************
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -21,7 +24,7 @@
 /*********************
  *      DEFINES
  *********************/
-#define RPC_ENABLE 1
+#define RPC_ENABLE
 
 #define DEFAULT_CHAEENL_STR     "0"
 #define DEFAULT_CHAEENL_INT     0
@@ -125,12 +128,12 @@ void gui_start(void) {
     lv_obj_t *cont1;
     lv_obj_t *cont2;
 
-    // g_socket_client_id = RPC_Client_Init();
-    // if (g_socket_client_id == -1)
-    // {
-    //     LV_LOG_ERROR("RCP Clinet Init Error %d!", g_socket_client_id);
-    //     //exit(1);
-    // }
+    g_socket_client_id = RPC_Client_Init();
+    if (g_socket_client_id == -1)
+    {
+        LV_LOG_ERROR("RCP Clinet Init Error %d!", g_socket_client_id);
+        //exit(1);
+    }
 
     if (LV_HOR_RES <= 320)
         disp_size = DISP_SMALL;
@@ -236,7 +239,7 @@ void gui_start(void) {
 #endif
         // 添加新节点
         add_new_item(cont2, -1, "COM1,115200,8n1", 4, 0, "1x", 300, DEFAULT_CHAEENL_INT);
-    // }
+    }
 }
 
 
@@ -245,7 +248,7 @@ void gui_start(void) {
  * @param 无
  * @return 无
  */
-static void init_style(void) {
+void init_style(void) {
     // 顶栏容器背景框样式
     lv_style_init(&g_style_cont1);
 
@@ -386,7 +389,7 @@ static void add_new_item_event_handler(lv_event_t *e) {
     // lv_obj_t * btn = lv_event_get_target(e);
     lv_obj_t *cont2 = lv_event_get_user_data(e);
 
-    add_new_item(cont2, -1, "COM2,115200,8n1", 2, 2, "1x", 1000, DEFAULT_CHAEENL_INT);   
+    add_new_item(cont2, -1, "COM1,115200,8n1", 4, 0, "1x", 300, DEFAULT_CHAEENL_INT);
 }
 
 /*
@@ -715,7 +718,7 @@ static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_a
  * @param cont2_x_2 父容器
  * @return 新创建的行容器
  */
-static lv_obj_t * colum_obj_create(lv_obj_t *parent) {
+lv_obj_t * colum_obj_create(lv_obj_t *parent) {
     lv_obj_t * cont2_x_2_x = lv_obj_create(parent);
     lv_obj_remove_style_all(cont2_x_2_x);
     lv_obj_set_size(cont2_x_2_x, LV_PCT(100), LV_SIZE_CONTENT);
@@ -731,7 +734,7 @@ static lv_obj_t * colum_obj_create(lv_obj_t *parent) {
  * @param cont2_x_2_x 父容器
  * @return 新创建的组件容器
  */
-static lv_obj_t * component_obj_create(lv_obj_t *parent) {
+lv_obj_t * component_obj_create(lv_obj_t *parent) {
     lv_obj_t * cont2_x_2_x_ta = lv_obj_create(parent);
     lv_obj_remove_style_all(cont2_x_2_x_ta);
     lv_obj_set_flex_flow(cont2_x_2_x_ta, LV_FLEX_FLOW_COLUMN);
@@ -932,7 +935,7 @@ static lv_obj_t *com_or_ip_conf_page_init(lv_obj_t *user_data, char *port_info, 
         stop[0] = *str0;
     } else {}
 
-    
+
     // 创建半透明遮罩层
     lv_obj_t *mask = lv_obj_create(lv_layer_top());
     lv_obj_set_user_data(mask, user_data);
@@ -961,7 +964,7 @@ static lv_obj_t *com_or_ip_conf_page_init(lv_obj_t *user_data, char *port_info, 
     lv_obj_set_size(panel_label, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(panel_label, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(panel_label, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    
+
     label = lv_label_create(panel_label);
     lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
     lv_label_set_text(label, "Advanced Settings");
@@ -995,7 +998,7 @@ static lv_obj_t *com_or_ip_conf_page_init(lv_obj_t *user_data, char *port_info, 
     label = lv_label_create(panel_com_baudrate);
     lv_label_set_text(label, "Baudrate  ");
     lv_obj_set_style_text_color(label, GRAY_FONT_COLOR, 0);
-    
+
     ta = lv_textarea_create(panel_com_baudrate);
     lv_obj_add_style(ta, &text_style, 0);
     lv_textarea_set_one_line(ta, true);
@@ -1284,7 +1287,7 @@ static void update_translater_event_handler(lv_event_t *e) {
     lv_obj_set_style_radius(bar, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(bar, 0, LV_PART_INDICATOR);
     lv_obj_add_event_cb(bar, upgrade_bar_event_cb, LV_EVENT_DRAW_MAIN_END, NULL);
-    
+
     #if 1
     // [5] 按钮区域
     lv_obj_t *panel_opt = lv_obj_create(panel); // [0-4]
@@ -1492,7 +1495,7 @@ static void file_explorer_upgrade_btn_event_handler(lv_event_t *e) {
         tUpdateInfo.dev_addr = atoi(lv_textarea_get_text(ta_dev_addr));
 
         SetUpdatingStatus(1); /* wei */
-#if RPC_ENABLE
+#ifdef  RPC_ENABLE
         rpc_start_update(g_socket_client_id, &tUpdateInfo);
 #endif
         lv_obj_add_state(btn, LV_STATE_DISABLED);
@@ -1681,7 +1684,7 @@ static void btn_send_event_handler(lv_event_t *e)
                 rpc_write_point(g_socket_client_id, point, val_write);
         }
         rpc_read_point(g_socket_client_id, point, &val_read);
-#else 
+#else
         // 模拟读数据,随机值
         val_read = rand() % 100;
 #endif
