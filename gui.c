@@ -21,6 +21,8 @@
 /*********************
  *      DEFINES
  *********************/
+#define RPC_ENABLE 1
+
 #define DEFAULT_CHAEENL_STR     "0"
 #define DEFAULT_CHAEENL_INT     0
 
