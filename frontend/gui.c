@@ -216,24 +216,24 @@ void gui_start(void) {
     LV_LOG_USER("point count = %d", cnt);
     if (cnt > 0) {
         int err;
-        int pre_point = -1;
+        int pre_point = -1, point = -1;
         PointInfo tInfo;
         for (int i = 0; i < cnt; i++) {
-            err = rpc_get_next_point(g_socket_client_id, pre_point, &tInfo);
+            err = rpc_get_next_point(g_socket_client_id, pre_point, point, &tInfo);
             if (!err)
             {
-                printf("Point %d:\n", tInfo.point);
-                printf("port_info: %s\n", tInfo.port_info);
-                printf("dev_addr: %d\n", tInfo.dev_addr);
-                printf("reg_addr: %d\n", tInfo.reg_addr);
-                printf("reg_type: %s\n", tInfo.reg_type);
-                printf("period: %d\n", tInfo.period);
-                printf("channel: %d\n", tInfo.channel);
+                // printf("Point %d:\n", tInfo.point);
+                // printf("port_info: %s\n", tInfo.port_info);
+                // printf("dev_addr: %d\n", tInfo.dev_addr);
+                // printf("reg_addr: %d\n", tInfo.reg_addr);
+                // printf("reg_type: %s\n", tInfo.reg_type);
+                // printf("period: %d\n", tInfo.period);
+                // printf("channel: %d\n", tInfo.channel);
 
                 // 添加新节点
-                add_new_item(cont2, tInfo.point, tInfo.port_info, tInfo.dev_addr, tInfo.reg_addr, tInfo.reg_type, tInfo.period, tInfo.channel);
+                add_new_item(cont2, point, tInfo.port_info, tInfo.dev_addr, tInfo.reg_addr, tInfo.reg_type, tInfo.period, tInfo.channel);
             }
-            pre_point = tInfo.point;
+            pre_point = point;
         }
     } else {
 #endif

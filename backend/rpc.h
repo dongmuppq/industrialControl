@@ -15,6 +15,7 @@ typedef struct PointInfo {
     uint16_t reg_addr_master; /* 主控的寄存器地址 */
 }PointInfo, *PPointInfo;
 
+PPointInfo local_get_points(void);
 bool server_start_update(const Json::Value& root, Json::Value& response);
 bool server_get_update_pecent(const Json::Value& root, Json::Value& response);
 bool server_get_mqttinfo(const Json::Value& root, Json::Value& response);

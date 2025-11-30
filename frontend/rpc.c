@@ -111,7 +111,7 @@ int RPC_Client_Init(void)
  * @param  period
  * @retval point
  */
-int rpc_add_point(int iSocketClient, char *port_info, int channel, int dev_addr, int reg_addr, char *reg_type, int period)
+int rpc_add_point(int iSocketClient, char *port_info, int channel, int dev_addr, int reg_addr, char *reg_type, int period, int reg_addr_master)
 {
     char buf[300];
     int iLen;
@@ -122,7 +122,8 @@ int rpc_add_point(int iSocketClient, char *port_info, int channel, int dev_addr,
                    "\"dev_addr\": %d,"         \
                    "\"reg_addr\": %d,"         \
                    "\"reg_type\": \"%s\"," \
-                   "\"period\": %d}, \"id\": \"2\" }", port_info, channel, dev_addr, reg_addr, reg_type, period);
+                   "\"period\": %d," \
+                   "\"reg_addr_master\": %d}, \"id\": \"2\" }", port_info, channel, dev_addr, reg_addr, reg_type, period, reg_addr_master);
     iLen = send(iSocketClient, buf, strlen(buf), 0);
     if (iLen ==  strlen(buf))
     {
@@ -230,19 +231,20 @@ int rpc_remove_point(int iSocketClient, int point)
  * @param  period
  * @retval 0:success, -1:fail
  */
-int rpc_modify_point(int iSocketClient, int point, char *port_info, int channel, int dev_addr, int reg_addr, char *reg_type, int period)
+int rpc_modify_point(int iSocketClient, int number, char *port_info, int channel, int dev_addr, int reg_addr, char *reg_type, int period, int reg_addr_master)
 {
     char buf[400];
     int iLen;
-    sprintf(buf, "{\"method\": \"modify_point\"," \
-                 "\"params\":"                \
-                 "{\"point\": %d,"            \
-                  "\"port_info\": \"%s\","    \
-                  "\"channel\": %d,"         \
-                  "\"dev_addr\": %d,"         \
-                  "\"reg_addr\": %d,"         \
-                  "\"reg_type\": \"%s\"," \
-                  "\"period\": %d}, \"id\": \"2\" }", point, port_info, channel, dev_addr, reg_addr, reg_type, period);
+    sprintf(buf, "{\"method\": \"add_point\"," \
+                  "\"params\":"                \
+                  "{\"port_info\": \"%s\","    \
+                   "\"number\": %d,",
+                   "\"channel\": %d,"         \
+                   "\"dev_addr\": %d,"         \
+                   "\"reg_addr\": %d,"         \
+                   "\"reg_type\": \"%s\"," \
+                   "\"period\": %d," \
+                   "\"reg_addr_master\": %d}, \"id\": \"2\" }", number, port_info, channel, dev_addr, reg_addr, reg_type, period, reg_addr_master);
     iLen = send(iSocketClient, buf, strlen(buf), 0);
     if (iLen ==  strlen(buf))
     {
@@ -345,7 +347,7 @@ int rpc_get_point_count(int iSocketClient)
  * @param  pInfo
  * @retval 0:success, -1:fail
  */
-int rpc_get_next_point(int iSocketClient, int pre_point, PPointInfo pInfo)
+int rpc_get_next_point(int iSocketClient, int pre_point, int point, PPointInfo pInfo)
 {
     char buf[300];
     int iLen;
@@ -370,8 +372,11 @@ int rpc_get_next_point(int iSocketClient, int pre_point, PPointInfo pInfo)
             cJSON *result = cJSON_GetObjectItem(root, "result");
             if (result)
             {
-                cJSON *point = cJSON_GetObjectItem(result, "point");
-                pInfo->point = point->valueint;
+                cJSON *number = cJSON_GetObjectItem(result, "number");
+                point = number->valueint;
+
+                cJSON *reg_addr_master = cJSON_GetObjectItem(result, "reg_addr_master");
+                pInfo->reg_addr_master = reg_addr_master->valueint;
 
                 cJSON *port_info = cJSON_GetObjectItem(result, "port_info");
                 strcpy(pInfo->port_info, port_info->valuestring);
