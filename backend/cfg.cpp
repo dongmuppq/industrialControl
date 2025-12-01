@@ -18,16 +18,18 @@
  * 
  * @return int 
  */
-int write__cfg(void) {
-    FILE *fp = fopen(CFG_FILE, "w");
+int write_cfg(void) {
+    FILE* fp;
     int i = 0;
     char *line = (char *)malloc(1024);
     PPointInfo point = local_get_points();
     
-    if (fp != NULL) {
-        while (point[i]->dev_addr != 0) {
-            snprintf(line, 1024, "{\"port_info\": \"%s\", \"reg_type\": \"%s\", \"channel\": %d, \"dev_addr\": %d, \"reg_addr\": \"%s\", \"period\": %d, \"reg_addr_master\": %d}\n", \
-                point[i]->port_info, point[i]->channel, point[i]->dev_addr, point[i]->reg_addr, point[i]->reg_type, point[i]->period);
+    errno_t err = fopen_s(&fp, CFG_FILE, "w");
+
+    if (!err) {
+        while (point[i].dev_addr != 0) {
+            snprintf(line, 1024, "{\"port_info\": \"%s\", \"reg_type\": \"%s\", \"channel\": %d, \"dev_addr\": %d, \"reg_addr\": %d, \"period\": %d}\n", \
+                point[i].port_info, point[i].reg_type, point[i].channel, point[i].dev_addr, point[i].reg_addr, point[i].period);
             fwrite(line, strlen(line), 1, fp);
             i++;
         }
@@ -46,16 +48,20 @@ int write__cfg(void) {
  * @return int 
  */
 int read_cfg(void) { 
-    FILE *fp = fopen(CFG_FILE, "r");
+    FILE* fp;
+    char line[400];
     Json::Value params;
     Json::Reader m_reader;
     PPointInfo tPointInfo;
     bool parsing = false;
     int i = 0;
+    errno_t err;
 
     tPointInfo = local_get_points();
 
-    if (fp != NULL) { 
+    err = fopen_s(&fp, CFG_FILE, "r");
+
+    if (!err) {
         while (fgets(line, 400, fp) != NULL) { 
             parsing = m_reader.parse(line, params);
 
@@ -66,9 +72,8 @@ int read_cfg(void) {
             Json::Value port_info = params["port_info"];
             if (port_info != Json::Value::null) {
                 // point information
-                strcpy(tPointInfo[i].port_info, params["port_info"].asCString());
-                strcpy(tPointInfo[i].reg_type, params["reg_type"].asCString());
-                tPointInfo[i].reg_addr_master = params["reg_addr_master"].asInt();
+                strncpy_s(tPointInfo[i].port_info, params["port_info"].asCString(), sizeof(tPointInfo[i].port_info) - 1);
+                strncpy_s(tPointInfo[i].reg_type, params["reg_type"].asCString(), sizeof(tPointInfo[i].reg_type) - 1);
                 tPointInfo[i].reg_addr = params["reg_addr"].asInt();
                 tPointInfo[i].channel = params["channel"].asInt();
                 tPointInfo[i].dev_addr = params["dev_addr"].asInt();

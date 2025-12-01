@@ -216,10 +216,10 @@ void gui_start(void) {
     LV_LOG_USER("point count = %d", cnt);
     if (cnt > 0) {
         int err;
-        int pre_point = -1, point = -1;
+        int point = -1;
         PointInfo tInfo;
         for (int i = 0; i < cnt; i++) {
-            err = rpc_get_next_point(g_socket_client_id, pre_point, point, &tInfo);
+            err = rpc_get_next_point(g_socket_client_id, &point, &tInfo);
             if (!err)
             {
                 // printf("Point %d:\n", tInfo.point);
@@ -233,7 +233,6 @@ void gui_start(void) {
                 // 添加新节点
                 add_new_item(cont2, point, tInfo.port_info, tInfo.dev_addr, tInfo.reg_addr, tInfo.reg_type, tInfo.period, tInfo.channel);
             }
-            pre_point = point;
         }
     } else {
 #endif
@@ -404,14 +403,6 @@ static void add_new_item_event_handler(lv_event_t *e) {
  * @param channel      H5上哪个通道
  */
 static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_addr, int reg_addr, char *reg_type, int period, int channel) {
-    // 新建操作框
-    lv_obj_t *cont2_x = lv_obj_create(parent);
-    lv_obj_set_size(cont2_x, LV_PCT(18), LV_PCT(100));
-    lv_obj_add_style(cont2_x, &g_style_cont2_x, 0);
-    lv_obj_clear_flag(cont2_x, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_flex_flow(cont2_x, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(cont2_x, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
     int rpc_fd;
     uint16_t port_type = 0; // 0:RTU, 1:TCP
     char tmp_str[32];
@@ -428,6 +419,14 @@ static void add_new_item(lv_obj_t *parent, int point, char *port_info, int dev_a
 #endif
     } else
         rpc_fd = point;
+
+    // 新建操作框
+    lv_obj_t *cont2_x = lv_obj_create(parent);
+    lv_obj_set_size(cont2_x, LV_PCT(18), LV_PCT(100));
+    lv_obj_add_style(cont2_x, &g_style_cont2_x, 0);
+    lv_obj_clear_flag(cont2_x, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(cont2_x, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(cont2_x, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     // 利用LVGL的对象继承关系记录一些数据，这里只是记录 rpc_add_point 返回的唯一句柄
     lv_obj_t *label_rpc_fd = lv_label_create(cont2_x); // [0]
