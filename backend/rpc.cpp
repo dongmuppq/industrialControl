@@ -1,10 +1,11 @@
 #include "rpc.h"
 #include "cfg.h"
-//#include "mmodbus.h"
-
+#include "modbus_client.h"
+#include <libmodbus/modbus.h>
 #include <iostream>
 
-PointInfo g_PointInfos[MAX_POINT_NUM];
+static MQTTInfo g_MQTTInfo;
+static PointInfo g_PointInfos[MAX_POINT_NUM];
 
 /* 获得点的数组
  * 返回值: PPointInfo(数组首地址)
@@ -16,10 +17,10 @@ PPointInfo local_get_points(void)
 
 /**
  * @brief 添加点
- * 
- * @param root 
- * @param response 
- * @return true 
+ *
+ * @param root
+ * @param response
+ * @return true
  */
 bool IndustrialControlRpc::server_add_point(const Json::Value& root, Json::Value& response)
 {
@@ -32,7 +33,8 @@ bool IndustrialControlRpc::server_add_point(const Json::Value& root, Json::Value
 
     if (params == Json::Value::null) {
         response["result"] = -1;
-    } else {
+    }
+    else {
         while (g_PointInfos[number].dev_addr != 0) {
             number++;
             if (number >= MAX_POINT_NUM) {
@@ -65,17 +67,17 @@ bool IndustrialControlRpc::server_add_point(const Json::Value& root, Json::Value
         // create_point_maps();
         // modbus_write_point_maps();
     }
-    
+
     return true;
 }
 
 
 /**
  * @brief 删除点
- * 
- * @param root 
- * @param response 
- * @return true 
+ *
+ * @param root
+ * @param response
+ * @return true
  */
 bool IndustrialControlRpc::server_remove_point(const Json::Value& root, Json::Value& response) {
     std::cout << "Start server_remove_point" << std::endl;
@@ -86,7 +88,8 @@ bool IndustrialControlRpc::server_remove_point(const Json::Value& root, Json::Va
 
     if (params == Json::Value::null) {
         response["result"] = -1;
-    } else {
+    }
+    else {
         int number = params[0u].asInt();
         if (number < 0 || number >= MAX_POINT_NUM) {
             response["result"] = -1;
@@ -110,10 +113,10 @@ bool IndustrialControlRpc::server_remove_point(const Json::Value& root, Json::Va
 
 /**
  * @brief 修改点
- * 
- * @param root 
- * @param response 
- * @return true 
+ *
+ * @param root
+ * @param response
+ * @return true
  */
 bool IndustrialControlRpc::server_modify_point(const Json::Value& root, Json::Value& response) {
     std::cout << "Start server_modify_point" << std::endl;
@@ -125,7 +128,8 @@ bool IndustrialControlRpc::server_modify_point(const Json::Value& root, Json::Va
 
     if (params == Json::Value::null) {
         response["result"] = -1;
-    } else {
+    }
+    else {
         int number = params["number"].asInt();
         if (number < 0 || number >= MAX_POINT_NUM) {
             response["result"] = -1;
@@ -160,10 +164,10 @@ bool IndustrialControlRpc::server_modify_point(const Json::Value& root, Json::Va
 
 /**
  * @brief 获取点数量
- * 
- * @param root 
- * @param response 
- * @return true 
+ *
+ * @param root
+ * @param response
+ * @return true
  */
 bool IndustrialControlRpc::server_get_point_count(const Json::Value& root, Json::Value& response) {
     std::cout << "Start server_get_point_count" << std::endl;
@@ -185,12 +189,12 @@ bool IndustrialControlRpc::server_get_point_count(const Json::Value& root, Json:
 
 /**
  * @brief 获取下一个点
- * 
- * @param root 
- * @param response 
- * @return true 
+ *
+ * @param root
+ * @param response
+ * @return true
  */
-bool IndustrialControlRpc::server_get_next_point(const Json::Value& root, Json::Value& response) { 
+bool IndustrialControlRpc::server_get_next_point(const Json::Value& root, Json::Value& response) {
     std::cout << "Start server_get_next_point" << std::endl;
 
     Json::Value params = root["params"];
@@ -201,30 +205,119 @@ bool IndustrialControlRpc::server_get_next_point(const Json::Value& root, Json::
 
     response["jsonrpc"] = "2.0";
     response["id"] = root["id"];
-    if (params == Json::Value::null) { 
+    if (params == Json::Value::null) {
         response["result"] = -1;
-    } else { 
+    }
+    else {
         pre_point = params[0u].asInt();
     }
 
-    for (i = pre_point + 1; i < MAX_POINT_NUM; i++) { 
-        if (g_PointInfos[i].dev_addr != 0) { 
+    for (i = pre_point + 1; i < MAX_POINT_NUM; i++) {
+        if (g_PointInfos[i].dev_addr != 0) {
             pInfo = &g_PointInfos[i];
             break;
         }
     }
 
-    if (pInfo != NULL) { 
+    if (pInfo != NULL) {
         result["number"] = i;
         result["port_info"] = pInfo->port_info;
-        result["channel"]   = pInfo->channel;
-        result["dev_addr"]  = pInfo->dev_addr;
-        result["reg_addr"]  = pInfo->reg_addr;
-        result["reg_type"]  = pInfo->reg_type;
-        result["period"]    = pInfo->period;
+        result["channel"] = pInfo->channel;
+        result["dev_addr"] = pInfo->dev_addr;
+        result["reg_addr"] = pInfo->reg_addr;
+        result["reg_type"] = pInfo->reg_type;
+        result["period"] = pInfo->period;
     }
 
     response["result"] = result;
     return true;
 }
 
+
+bool IndustrialControlRpc::server_read_point(const Json::Value& root, Json::Value& response)
+{
+
+}
+
+
+bool IndustrialControlRpc::server_write_point(const Json::Value& root, Json::Value& response)
+{
+
+}
+
+
+/* 获得本地记录的MQTT信息
+ *
+ */
+void local_get_mqttinfo(PMQTTInfo pInfo)
+{
+    *pInfo = g_MQTTInfo;
+}
+
+
+bool IndustrialControlRpc::server_start_update(const Json::Value& root, Json::Value& response)
+{
+
+}
+
+bool IndustrialControlRpc::server_get_update_pecent(const Json::Value& root, Json::Value& response)
+{
+
+}
+
+bool IndustrialControlRpc::server_get_mqttinfo(const Json::Value& root, Json::Value& response)
+{
+
+}
+
+bool IndustrialControlRpc::server_set_mqttinfo(const Json::Value& root, Json::Value& response)
+{
+}
+
+
+bool IndustrialControlRpc::Print(const Json::Value& root, Json::Value& response)
+{
+    std::cout << "Receive query: " << root << std::endl;
+    response["jsonrpc"] = "2.0";
+    response["id"] = root["id"];
+    response["result"] = "success";
+    return true;
+}
+
+bool IndustrialControlRpc::Notify(const Json::Value& root, Json::Value& response)
+{
+    std::cout << "Notification: " << root << std::endl;
+    response = Json::Value::null;
+    return true;
+}
+
+Json::Value IndustrialControlRpc::GetDescription()
+{
+    Json::FastWriter writer;
+    Json::Value root;
+    Json::Value parameters;
+    Json::Value param1;
+
+    root["description"] = "Print";
+
+    /* type of parameter named arg1 */
+    param1["type"] = "integer";
+    param1["description"] = "argument 1";
+
+    /* push it into the parameters list */
+    parameters["arg1"] = param1;
+    root["parameters"] = parameters;
+
+    /* no value returned */
+    root["returns"] = Json::Value::null;
+
+    return root;
+}
+
+
+/* 设置更新百分比
+ */
+void local_set_update_percent(int percent)
+{
+
+}

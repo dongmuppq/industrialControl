@@ -1,21 +1,36 @@
-#ifndef __RPC_H__
-#define __RPC_H__ 
+#ifndef __RPC_H
+#define __RPC_H
 
 #include <json/json.h>
 
 #define MAX_POINT_NUM 100
 
 typedef struct PointInfo {
-    char port_info[20];  // 中控与PC的连接接口  
+    char port_info[100];
+    int channel;
+    int dev_addr;
+    int reg_addr;
     char reg_type[4];
-    uint16_t channel;		  // 中控与传感器的连接接口
-    uint16_t dev_addr;
-    uint16_t reg_addr;
-    uint16_t period;  /* ms */
-    uint16_t reg_addr_master; /* 主控的寄存器地址 */
+    int period;  /* ms */
 }PointInfo, *PPointInfo;
 
-PPointInfo local_get_points(void);
+typedef struct MQTTInfo {
+    char broker[100];
+    int  port;
+    char client_id[100];
+    char user[100];
+    char password[100];
+    char publish[100];
+    char subcribe[100];
+}MQTTInfo, *PMQTTInfo;
+
+typedef struct UpdateInfo {
+    char file[100];
+    char port_info[100];
+    int channel;
+    int dev_addr;
+}UpdateInfo, *PUpdateInfo;
+
 
 class IndustrialControlRpc
 {
@@ -33,7 +48,7 @@ class IndustrialControlRpc
     bool server_read_point(const Json::Value& root, Json::Value& response);
     bool server_write_point(const Json::Value& root, Json::Value& response);
 
-    
+
     /**
      * \brief Reply with success.
      * \param root JSON-RPC request
@@ -41,7 +56,7 @@ class IndustrialControlRpc
      * \return true if correctly processed, false otherwise
      */
     bool Print(const Json::Value& root, Json::Value& response);
-    
+
     /**
      * \brief Notification.
      * \param root JSON-RPC request
@@ -49,13 +64,35 @@ class IndustrialControlRpc
      * \return true if correctly processed, false otherwise
      */
     bool Notify(const Json::Value& root, Json::Value& response);
-    
+
     /**
      * \brief Get the description in JSON format.
      * \return JSON description
      */
     Json::Value GetDescription();
-    
+
 };
 
-#endif  // __RPC_H__
+/* 获得点的数组
+ * 返回值: PPointInfo(数组首地址)
+ */
+PPointInfo local_get_points(void);
+
+/* 获得某个点
+ * point : 索引
+ * 返回值: PPointInfo
+ */
+PPointInfo local_get_point(int point);
+
+/* 获得本地记录的MQTT信息
+ *
+ */
+void local_get_mqttinfo(PMQTTInfo pInfo);
+
+
+/* 设置更新百分比
+ */
+void local_set_update_percent(int percent);
+
+
+#endif  // __RPC_H

@@ -18,6 +18,13 @@ typedef struct HostPointMap {
     PointMap tPointMaps[MAX_POINT_COUNT];
 }HostPointMap, *PHostPointMap;
 
+void create_point_maps(void);
+int modbus_write_point_maps(void);
+int modbus_write_point(int point, int val);
+int modbus_read_point(int point, int *val);
+
+int modbus_clear_status(int cmd_status_point);
+int modbus_update(char *file, char *port_info, int channel, int dev_addr, void(*set_percent_func)(int));
 
 
 #endif /* _MODBUS_CLIENT_H */

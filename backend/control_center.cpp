@@ -30,12 +30,12 @@ static void signal_handler(int code)
 
 /**
  * @brief 主函数
- * 
- * @param argc 
- * @param argv 
- * @return int 
+ *
+ * @param argc
+ * @param argv
+ * @return int
  */
-int main(int argc, char *argv[]) { 
+int main(int argc, char* argv[]) {
     // 初始化 jsonrpc 服务
     IndustrialControlRpc a;
     //Json::Rpc::TcpServer server(std::string("192.168.0.131"), 1234);
@@ -46,7 +46,9 @@ int main(int argc, char *argv[]) {
 
     // cfg 文件读取，建立映射表并写入中控
     read_cfg();
-
+    create_point_maps();
+    modbus_write_point_maps();
+    
     if (!networking::init())
     {
         std::cerr << "Networking initialization failed" << std::endl;

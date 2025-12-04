@@ -93,3 +93,5 @@ int read_cfg(void) {
     
     return -1;
 }
+
+uint8_t * read_file(char *file_name, int *file_len) {}
