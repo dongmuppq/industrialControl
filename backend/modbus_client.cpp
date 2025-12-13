@@ -22,6 +22,7 @@ static modbus_t *create_modbus_rtu_ctx(char *port_info);
 static modbus_t *create_modbus_tcp_ctx(char *port_info);
 
 
+// TODO: 修改为只有一个中控（未来扩展为多个中控）
 // 创建点映射表
 void create_point_maps(void) {
    PHostPointMap ptHostPointMap = NULL;
@@ -91,46 +92,48 @@ void create_point_maps(void) {
 * 向中控写入点映射表
 */
 int modbus_write_point_maps(void) {
-   PHostPointMap ptHostPointMap = NULL;
-   modbus_t *ctx = NULL;
-   int i = 0, j = 0;
-   int rc = 0;
+    PHostPointMap ptHostPointMap = NULL;
+    modbus_t *ctx = NULL;
+    int i = 0, j = 0;
+    int rc = 0;
+    int file_number = 0;  // 同一中控可能有不同通道，用文件标号区分不同通道映射表
 
-   while (!g_HostPointMaps[i].port_info[0]) {
-       ptHostPointMap = &g_HostPointMaps[i];
+    while (g_HostPointMaps[i].port_info[0]) {
+        ptHostPointMap = &g_HostPointMaps[i];
+        i++;
 
-       /* 计算当前端口映射表的大小 */
-       int point_count = 0;
-       for (j = 0; j < MAX_POINT_COUNT && ptHostPointMap->tPointMaps[j].reg_type[0]; j++) {
-           point_count++;
-       }
+        /* 计算当前端口映射表的大小 */
+        int point_count = 0;
+        for (j = 0; j < MAX_POINT_COUNT && ptHostPointMap->tPointMaps[j].reg_type[0]; j++) {
+            point_count++;
+        }
 
-       // 防止没有配置点
-       if (point_count == 0) {
-           printf("端口 %s 没有配置点，跳过\n", ptHostPointMap->port_info);
-           continue;
-       }
+        // 防止没有配置点
+        if (point_count == 0) {
+            printf("端口 %s 没有配置点，跳过\n", ptHostPointMap->port_info);
+            continue;
+        }
 
-       
-       int port_file_size = point_count * sizeof(PointMap);
+        
+        int port_file_size = point_count * sizeof(PointMap);
 
-       /* 得到modbus上下文 */
-       ctx = get_modbus_ctx(ptHostPointMap->port_info);
-       if (!ctx) {
-           printf("无法获取端口 %s 的Modbus上下文\n", ptHostPointMap->port_info);
-           continue;
-       }
+        /* 得到modbus上下文 */
+        ctx = get_modbus_ctx(ptHostPointMap->port_info);
+        if (!ctx) {
+            printf("无法获取端口 %s 的Modbus上下文\n", ptHostPointMap->port_info);
+            continue;
+        }
 
-       /* 中控地址永远是1 */
-       modbus_set_slave(ctx, 1);
-       
-       /* 只发送当前端口的映射表 */
-       rc = modbus_write_file(ctx, 0, (uint8_t*)"reg_map", 
-                             (uint8_t*)ptHostPointMap->tPointMaps, 
-                             port_file_size);
-   }
+        /* 中控地址永远是1 */
+        modbus_set_slave(ctx, 1);
+        
+        /* 只发送当前端口的映射表 */
+        rc = modbus_write_file(ctx, file_number++, (uint8_t*)"reg_map", 
+                                (uint8_t*)ptHostPointMap->tPointMaps, 
+                                port_file_size);
+    }
 
-   return rc;
+    return rc;
 }
 
 
@@ -138,36 +141,36 @@ int modbus_write_point_maps(void) {
 * 获取modbus上下文
 */
 static modbus_t *get_modbus_ctx(char *port_info) {
-   int i;
-   modbus_t *ctx = NULL;
-   
-   // 有则返回，无则创建
-   for (i = 0; i < MAX_MODBUS; i++)
-   {
-       if (!strcmp(port_info, g_atModbusInfos[i].info) && g_atModbusInfos[i].ctx)
-       {
-           g_atModbusInfos[i].m_mutex.Lock();
-           return g_atModbusInfos[i].ctx;
-       }
+    int i;
+    modbus_t *ctx = NULL;
 
-       if (!g_atModbusInfos[i].ctx)
-           break;
-   }
+    // 有则返回，无则创建
+    for (i = 0; i < MAX_MODBUS; i++)
+    {
+        if (!strcmp(port_info, g_atModbusInfos[i].info) && g_atModbusInfos[i].ctx)
+        {
+            g_atModbusInfos[i].m_mutex.Lock();
+            return g_atModbusInfos[i].ctx;
+        }
 
-   // 在空g_atModbusInfos中创建modbus上下文
-   if (!strncmp(port_info, "/dev", 4) || strstr(port_info, "com") || strstr(port_info, "COM"))
-       ctx = create_modbus_rtu_ctx(port_info);
-   else
-       ctx = create_modbus_tcp_ctx(port_info);
+        if (!g_atModbusInfos[i].ctx)
+            break;
+    }
 
-   if (ctx)
-   {
-       strncpy_s(g_atModbusInfos[i].info, port_info, sizeof(g_atModbusInfos[i].info)-1);
-       g_atModbusInfos[i].m_mutex.Lock();
-       g_atModbusInfos[i].ctx = ctx;
-   }
+    // 在空g_atModbusInfos中创建modbus上下文
+    if (!strncmp(port_info, "/dev", 4) || strstr(port_info, "com") || strstr(port_info, "COM"))
+        ctx = create_modbus_rtu_ctx(port_info);
+    else
+        ctx = create_modbus_tcp_ctx(port_info);
 
-   return ctx;
+    if (ctx)
+    {
+        strncpy_s(g_atModbusInfos[i].info, port_info, sizeof(g_atModbusInfos[i].info)-1);
+        g_atModbusInfos[i].m_mutex.Lock();
+        g_atModbusInfos[i].ctx = ctx;
+    }
+
+    return ctx;
 }
 
 
@@ -176,118 +179,128 @@ static modbus_t *get_modbus_ctx(char *port_info) {
 */
 static modbus_t *create_modbus_rtu_ctx(char *port_info)
 {
-   char tmp[200];
-   char dev[50];
-   int baud;
-   char parity;
-   int data;
-   int stop;
-   modbus_t *ctx = NULL;
+    char tmp[200];
+    char dev[50];
+    int baud;
+    char parity;
+    int data;
+    int stop;
+    modbus_t *ctx = NULL;
 
-   char *str0;
-   char *str;
+    char *str0;
+    char *str;
 
-   
-   /* /dev/ttyUSB0,115200,8n1 */
-   strncpy_s(tmp, port_info, sizeof(tmp)-1);
 
-   str = strstr(tmp, ",");
-   if (str)
-   {
-       *str = '\0';
-       if (strstr(tmp, "dev")) /* linux */
-           strncpy_s(dev, tmp, sizeof(dev)-1);
-       else /* windows */
-       {
-           /* \\\\.\\COM1 */
-           snprintf(dev, 50, "\\\\.\\%s", tmp);
-           printf("dev name: %s\r\n", dev);
-       }
-   }
-   else
-   {
-       return NULL;
-   }
+    /* /dev/ttyUSB0,115200,8n1 */
+    strncpy_s(tmp, port_info, sizeof(tmp)-1);
 
-   str0 = str + 1;    
-   str = strstr(str0, ",");
-   if (str)
-   {
-       *str = '\0';
-       baud = (int)strtoul(str0, NULL, 0);
-   }
-   
-   str0 = str + 1;
-   data = *str0 - '0';
+    str = strstr(tmp, ",");
+    if (str)
+    {
+        *str = '\0';
+        if (strstr(tmp, "dev")) /* linux */
+            strncpy_s(dev, tmp, sizeof(dev)-1);
+        else /* windows */
+        {
+            /* \\\\.\\COM1 */
+            snprintf(dev, 50, "\\\\.\\%s", tmp);
+            printf("dev name: %s\r\n", dev);
+        }
+    }
+    else
+    {
+        return NULL;
+    }
 
-   str0++;
-   if (*str0 == 'n' || *str0 == 'N')
-       parity = 'N';
-   if (*str0 == 'e' || *str0 == 'E')
-       parity = 'E';
-   if (*str0 == 'o' || *str0 == 'O')
-       parity = 'O';
+    str0 = str + 1;    
+    str = strstr(str0, ",");
+    if (str)
+    {
+        *str = '\0';
+        baud = (int)strtoul(str0, NULL, 0);
+    }
 
-   str0++;
-   stop = *str0 - '0';
-   
-   // 创建modbus上下文
-   ctx = modbus_new_rtu(dev, baud, parity, data, stop);
-   if (ctx == NULL) {
-       fprintf(stderr, "Unable to allocate libmodbus context\n");
-       return NULL;
-   }
-   
-   // 连接modbus
-   if (modbus_connect(ctx) == -1) {
-       fprintf(stderr, "Connection failed: %s\n", modbus_strerror(errno));
-       modbus_free(ctx);
-       return NULL;
-   }
+    str0 = str + 1;
+    data = *str0 - '0';
 
-   return ctx;
+    str0++;
+    if (*str0 == 'n' || *str0 == 'N')
+        parity = 'N';
+    if (*str0 == 'e' || *str0 == 'E')
+        parity = 'E';
+    if (*str0 == 'o' || *str0 == 'O')
+        parity = 'O';
+
+    str0++;
+    stop = *str0 - '0';
+
+    // 创建modbus上下文
+    ctx = modbus_new_rtu(dev, baud, parity, data, stop);
+    if (ctx == NULL) {
+        fprintf(stderr, "Unable to allocate libmodbus context\n");
+        return NULL;
+    }
+
+    // 连接modbus
+    if (modbus_connect(ctx) == -1) {
+        fprintf(stderr, "Connection failed: %s\n", modbus_strerror(errno));
+        modbus_free(ctx);
+        return NULL;
+    }
+
+    return ctx;
 }
 
 
 static modbus_t *create_modbus_tcp_ctx(char *port_info)
 {
-   modbus_t *ctx = NULL;
-   char tmp[200];
+    modbus_t *ctx = NULL;
+    char tmp[200];
 
-   char *str;
+    char *str;
 
-   /* 192.168.1.123:1502 */
-   strncpy_s(tmp, port_info, sizeof(tmp)-1);
-   str = strstr(tmp, ":");
-   if (str)
-   {
-       *str = '\0';
-       str++;
-       int port = (int)strtoul(str, NULL, 0);
-       
-       ctx = modbus_new_tcp(tmp, port);
-       if (ctx == NULL) {
-           fprintf(stderr, "Unable to allocate libmodbus context\n");
-           return NULL;
-       }
-       
-       
-       if (modbus_connect(ctx) == -1) {
-           fprintf(stderr, "Connection failed: %s\n", modbus_strerror(errno));
-           modbus_free(ctx);
-           return NULL;
-       }
+    /* 192.168.1.123:1502 */
+    strncpy_s(tmp, port_info, sizeof(tmp)-1);
+    str = strstr(tmp, ":");
+    if (str)
+    {
+        *str = '\0';
+        str++;
+        int port = (int)strtoul(str, NULL, 0);
+        
+        ctx = modbus_new_tcp(tmp, port);
+        if (ctx == NULL) {
+            fprintf(stderr, "Unable to allocate libmodbus context\n");
+            return NULL;
+        }
+        
+        
+        if (modbus_connect(ctx) == -1) {
+            fprintf(stderr, "Connection failed: %s\n", modbus_strerror(errno));
+            modbus_free(ctx);
+            return NULL;
+        }
 
-       printf("******* create modbus ctx ok for %s\n", port_info);
-       return ctx;
-   }
-   return NULL;
-   
+        printf("******* create modbus ctx ok for %s\n", port_info);
+        return ctx;
+    }
+    return NULL;
 }
 
 
 int modbus_clear_status(int cmd_status_point) {
+    int err;
+    int val;
+    for (int i = 0; i < 5; i++)
+    {
+        err = modbus_write_point(cmd_status_point, 0xbb);
+        err = modbus_read_point(cmd_status_point, &val);
 
+        if (val != 0xbb)
+            return 0;
+    }
+
+    return -1;
 }
 
 int modbus_write_point(int point, int val) {

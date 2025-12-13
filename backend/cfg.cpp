@@ -94,4 +94,42 @@ int read_cfg(void) {
     return -1;
 }
 
-uint8_t * read_file(char *file_name, int *file_len) {}
+uint8_t * read_file(char *file_name, int *file_len) {
+    FILE* fp;
+    int size;
+    uint8_t *buf;
+
+    errno_t err = fopen_s(&fp, file_name, "rb");
+
+    if (err) {
+        printf("can't open file %s\n", file_name);
+        perror("Error opening file");
+        return NULL;
+    }
+
+    // 将指针移至文件末尾，计算文件大小
+    if (fseek(fp, 0, SEEK_END) != 0) {
+        printf("can't fseek file %s\n", file_name);
+        fclose(fp);
+        return NULL;
+    }
+
+    size = ftell(fp);
+    *file_len = size;
+    printf("file size = %d\n", size);
+
+    buf = (uint8_t *)malloc(size);
+
+    if (!buf) {
+        printf("can't malloc buf\n");
+        fclose(fp);
+        return NULL;
+    }
+
+    // 移回文件开头，二进制读取文件
+    fseek(fp, 0, SEEK_SET);
+    fread_s(buf, size, 1, size, fp);
+        
+    fclose(fp);
+    return buf;
+}

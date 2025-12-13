@@ -234,15 +234,55 @@ bool IndustrialControlRpc::server_get_next_point(const Json::Value& root, Json::
 }
 
 
-bool IndustrialControlRpc::server_read_point(const Json::Value& root, Json::Value& response)
-{
+bool IndustrialControlRpc::server_read_point(const Json::Value& root, Json::Value& response) {
+    std::cout << "Start server_read_point" << std::endl;
 
+    Json::Value params = root["params"];
+    int point = params[0u].asInt();
+    int val = 0;
+
+    response["jsonrpc"] = "2.0";
+    response["id"] = root["id"];
+
+    // TODO: 更新时禁止读写
+
+    // 中控断电重连后重新写入
+    if (modbus_is_reconnect()) {
+        create_point_maps();
+        if (!modbus_write_point_maps())
+            modbus_clear_reconnect_status();
+    }
+
+    if (0 == modbus_read_point(point, &val)) {
+        response["result"] = val;
+    }
+    
+    return true;
 }
 
 
-bool IndustrialControlRpc::server_write_point(const Json::Value& root, Json::Value& response)
-{
+bool IndustrialControlRpc::server_write_point(const Json::Value& root, Json::Value& response) {
+    Json::Value params = root["params"];
+    int point = params[0u].asInt();
+    int val   = params[1u].asInt();
+    
+    response["jsonrpc"] = "2.0";
+    response["id"] = root["id"];
 
+    // TODO: 更新时禁止读写
+
+    // 中控断电重连后重新写入
+    if (modbus_is_reconnect()) {
+        create_point_maps();
+        if (!modbus_write_point_maps())
+            modbus_clear_reconnect_status();
+    }
+
+    if (0 == modbus_write_point(point, val)) {
+        response["result"] = 0;
+    }    
+
+    return true;
 }
 
 
@@ -274,22 +314,13 @@ bool IndustrialControlRpc::server_set_mqttinfo(const Json::Value& root, Json::Va
 {
 }
 
-
-bool IndustrialControlRpc::Print(const Json::Value& root, Json::Value& response)
+/* 设置更新百分比
+ */
+void local_set_update_percent(int percent)
 {
-    std::cout << "Receive query: " << root << std::endl;
-    response["jsonrpc"] = "2.0";
-    response["id"] = root["id"];
-    response["result"] = "success";
-    return true;
+
 }
 
-bool IndustrialControlRpc::Notify(const Json::Value& root, Json::Value& response)
-{
-    std::cout << "Notification: " << root << std::endl;
-    response = Json::Value::null;
-    return true;
-}
 
 Json::Value IndustrialControlRpc::GetDescription()
 {
@@ -315,9 +346,18 @@ Json::Value IndustrialControlRpc::GetDescription()
 }
 
 
-/* 设置更新百分比
- */
-void local_set_update_percent(int percent)
+bool IndustrialControlRpc::Print(const Json::Value& root, Json::Value& response)
 {
+    std::cout << "Receive query: " << root << std::endl;
+    response["jsonrpc"] = "2.0";
+    response["id"] = root["id"];
+    response["result"] = "success";
+    return true;
+}
 
+bool IndustrialControlRpc::Notify(const Json::Value& root, Json::Value& response)
+{
+    std::cout << "Notification: " << root << std::endl;
+    response = Json::Value::null;
+    return true;
 }
