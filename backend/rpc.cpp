@@ -1,11 +1,13 @@
 #include "rpc.h"
 #include "cfg.h"
 #include "modbus_client.h"
+#include "update.h"
 #include <libmodbus/modbus.h>
 #include <iostream>
 
 static MQTTInfo g_MQTTInfo;
 static PointInfo g_PointInfos[MAX_POINT_NUM];
+static UpdateThread g_UpdateThread;
 
 /* 获得点的数组
  * 返回值: PPointInfo(数组首地址)
@@ -245,6 +247,8 @@ bool IndustrialControlRpc::server_read_point(const Json::Value& root, Json::Valu
     response["id"] = root["id"];
 
     // TODO: 更新时禁止读写
+    if (g_UpdateThread.isRunning())
+        return false;
 
     // 中控断电重连后重新写入
     if (modbus_is_reconnect()) {
@@ -256,20 +260,23 @@ bool IndustrialControlRpc::server_read_point(const Json::Value& root, Json::Valu
     if (0 == modbus_read_point(point, &val)) {
         response["result"] = val;
     }
-    
+
     return true;
 }
 
 
 bool IndustrialControlRpc::server_write_point(const Json::Value& root, Json::Value& response) {
+    std::cout << "Start server_write_point" << std::endl;
     Json::Value params = root["params"];
     int point = params[0u].asInt();
-    int val   = params[1u].asInt();
-    
+    int val = params[1u].asInt();
+
     response["jsonrpc"] = "2.0";
     response["id"] = root["id"];
 
     // TODO: 更新时禁止读写
+    if (g_UpdateThread.isRunning())
+        return false;
 
     // 中控断电重连后重新写入
     if (modbus_is_reconnect()) {
@@ -280,7 +287,7 @@ bool IndustrialControlRpc::server_write_point(const Json::Value& root, Json::Val
 
     if (0 == modbus_write_point(point, val)) {
         response["result"] = 0;
-    }    
+    }
 
     return true;
 }
@@ -297,12 +304,46 @@ void local_get_mqttinfo(PMQTTInfo pInfo)
 
 bool IndustrialControlRpc::server_start_update(const Json::Value& root, Json::Value& response)
 {
+    std::cout << "Receive query: " << root << std::endl;
+    Json::Value params = root["params"];
 
+    response["jsonrpc"] = "2.0";
+    response["id"] = root["id"];
+
+    if (params == Json::Value::null) {
+        std::cout << "no params" << std::endl;
+        response["result"] = -1;
+    }
+    else {
+        Json::Value file = params["file"];
+        Json::Value port_info = params["port_info"];
+        Json::Value channel = params["channel"];
+        Json::Value dev_addr = params["dev_addr"];
+
+        g_UpdateThread.StartUpdate(file.asCString(), port_info.asCString(), channel.asInt(), dev_addr.asInt());
+
+        response["result"] = 0;
+    }
+
+    return true;
 }
 
 bool IndustrialControlRpc::server_get_update_pecent(const Json::Value& root, Json::Value& response)
 {
+    int percent = g_UpdateThread.GetUpdatePercent();
 
+    response["jsonrpc"] = "2.0";
+    response["id"] = root["id"];
+    response["result"] = percent;
+
+    return true;
+}
+
+/* 设置更新百分比
+ */
+void local_set_update_percent(int percent)
+{
+    g_UpdateThread.SetUpdatePercent(percent);
 }
 
 bool IndustrialControlRpc::server_get_mqttinfo(const Json::Value& root, Json::Value& response)
@@ -312,13 +353,6 @@ bool IndustrialControlRpc::server_get_mqttinfo(const Json::Value& root, Json::Va
 
 bool IndustrialControlRpc::server_set_mqttinfo(const Json::Value& root, Json::Value& response)
 {
-}
-
-/* 设置更新百分比
- */
-void local_set_update_percent(int percent)
-{
-
 }
 
 

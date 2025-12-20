@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
     read_cfg();
     create_point_maps();
     modbus_write_point_maps();
-    
+
     if (!networking::init())
     {
         std::cerr << "Networking initialization failed" << std::endl;

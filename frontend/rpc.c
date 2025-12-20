@@ -230,19 +230,19 @@ int rpc_remove_point(int iSocketClient, int point)
  * @param  period
  * @retval 0:success, -1:fail
  */
-int rpc_modify_point(int iSocketClient, int number, char *port_info, int channel, int dev_addr, int reg_addr, char *reg_type, int period)
+int rpc_modify_point(int iSocketClient, int point, char *port_info, int channel, int dev_addr, int reg_addr, char *reg_type, int period)
 {
     char buf[400];
     int iLen;
-    sprintf(buf, "{\"method\": \"add_point\"," \
-                  "\"params\":"                \
-                  "{\"port_info\": \"%s\","    \
-                   "\"number\": %d,",
-                   "\"channel\": %d,"         \
-                   "\"dev_addr\": %d,"         \
-                   "\"reg_addr\": %d,"         \
-                   "\"reg_type\": \"%s\"," \
-                   "\"period\": %d}, \"id\": \"2\" }", number, port_info, channel, dev_addr, reg_addr, reg_type, period);
+    sprintf(buf, "{\"method\": \"modify_point\"," \
+                 "\"params\":"                \
+                 "{\"point\": %d,"            \
+                  "\"port_info\": \"%s\","    \
+                  "\"channel\": %d,"         \
+                  "\"dev_addr\": %d,"         \
+                  "\"reg_addr\": %d,"         \
+                  "\"reg_type\": \"%s\"," \
+                  "\"period\": %d}, \"id\": \"2\" }", point, port_info, channel, dev_addr, reg_addr, reg_type, period);
     iLen = send(iSocketClient, buf, strlen(buf), 0);
     if (iLen ==  strlen(buf))
     {
@@ -283,7 +283,6 @@ int rpc_modify_point(int iSocketClient, int number, char *port_info, int channel
         return -1;
     }
 }
-
 
 /**
  * @brief  get point count
