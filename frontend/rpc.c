@@ -236,7 +236,7 @@ int rpc_modify_point(int iSocketClient, int point, char *port_info, int channel,
     int iLen;
     sprintf(buf, "{\"method\": \"modify_point\"," \
                  "\"params\":"                \
-                 "{\"point\": %d,"            \
+                 "{\"number\": %d,"            \
                   "\"port_info\": \"%s\","    \
                   "\"channel\": %d,"         \
                   "\"dev_addr\": %d,"         \
@@ -449,11 +449,13 @@ int rpc_write_point(int iSocketClient, int point, int val)
             if (result)
             {
                 cJSON_Delete(root);
+                DEBUG_PRINTF("set ok\n");
                 return result->valueint;
             }
             else
             {
                 cJSON_Delete(root);
+                DEBUG_PRINTF("set error\n");
                 return -1;
             }
         }

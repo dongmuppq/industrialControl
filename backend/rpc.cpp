@@ -9,6 +9,58 @@ static MQTTInfo g_MQTTInfo;
 static PointInfo g_PointInfos[MAX_POINT_NUM];
 static UpdateThread g_UpdateThread;
 
+
+
+/* 本地增加一个点
+ * 比如读取配置文件增加点时就调用此函数
+ * 返回值: >0-成功,返回点的索引, (-1)失败
+ */
+int local_add_point(PPointInfo pNewInfo) {
+    int i = 0;
+    PPointInfo pInfo;
+    int point = -1;
+    
+    while (g_PointInfos[i].dev_addr != 0) {
+        i++;
+        if (i >= MAX_POINT_NUM) {
+            return -1;
+        }
+    }
+
+    pInfo = &g_PointInfos[i];
+    
+    strncpy_s(pInfo->port_info, pNewInfo->port_info, sizeof(pInfo->port_info)-1);
+    if (pInfo->port_info[0] == 'C')
+        pInfo->port_info[0] = 'c';
+    if (pInfo->port_info[1] == 'O')
+        pInfo->port_info[1] = 'o';
+    if (pInfo->port_info[2] == 'M')
+        pInfo->port_info[2] = 'm';
+
+    pInfo->channel = pNewInfo->channel;
+    
+    pInfo->dev_addr = pNewInfo->dev_addr;
+
+    pInfo->reg_addr = pNewInfo->reg_addr;
+
+    strncpy_s(pInfo->reg_type, pNewInfo->reg_type, sizeof(pInfo->reg_type)-1);
+
+    pInfo->period = pNewInfo->period;
+    
+    return i;
+}
+
+
+/* 本地删除一个点
+ * 返回值: 无
+ */
+void local_remove_point(int point) {
+    for (int i = point; i < MAX_POINT_NUM - 1; i++) {
+        g_PointInfos[i] = g_PointInfos[i + 1];
+    }
+}
+
+
 /* 获得点的数组
  * 返回值: PPointInfo(数组首地址)
  */
@@ -28,6 +80,7 @@ bool IndustrialControlRpc::server_add_point(const Json::Value& root, Json::Value
 {
     std::cout << "Start server_add_point" << std::endl;
     int number = 0;
+    PointInfo tInfo;
     Json::Value params = root["params"];
 
     response["jsonrpc"] = "2.0";
@@ -37,37 +90,25 @@ bool IndustrialControlRpc::server_add_point(const Json::Value& root, Json::Value
         response["result"] = -1;
     }
     else {
-        while (g_PointInfos[number].dev_addr != 0) {
-            number++;
-            if (number >= MAX_POINT_NUM) {
-                response["jsonrpc"] = "2.0";
-                response["id"] = root["id"];
-                response["result"] = -1;
+        strncpy_s(tInfo.port_info, params["port_info"].asCString(), sizeof(tInfo.port_info)-1); 
 
-                return true;
-            }
-        }
+        tInfo.channel  = params["channel"].asInt();
+        tInfo.dev_addr = params["dev_addr"].asInt();
+        tInfo.reg_addr = params["reg_addr"].asInt();
+        strncpy_s(tInfo.reg_type, params["reg_type"].asCString(), sizeof(tInfo.reg_type)-1);
+        tInfo.period = params["period"].asInt();
 
-        strncpy_s(g_PointInfos[number].port_info, params["port_info"].asCString(), sizeof(g_PointInfos[number].port_info) - 1);
-        if (g_PointInfos[number].port_info[0] == 'C')
-            g_PointInfos[number].port_info[0] = 'c';
-        if (g_PointInfos[number].port_info[1] == 'O')
-            g_PointInfos[number].port_info[1] = 'o';
-        if (g_PointInfos[number].port_info[2] == 'M')
-            g_PointInfos[number].port_info[2] = 'm';
+        number = local_add_point(&tInfo);
+        printf("add point %d: %s\r\n", number, tInfo.port_info);
 
-        strncpy_s(g_PointInfos[number].reg_type, params["reg_type"].asCString(), sizeof(g_PointInfos[number].reg_type) - 1);
-        g_PointInfos[number].channel = params["channel"].asInt();
-        g_PointInfos[number].dev_addr = params["dev_addr"].asInt();
-        g_PointInfos[number].period = params["period"].asInt();
-        g_PointInfos[number].reg_addr = params["reg_addr"].asInt();
-
+        response["jsonrpc"] = "2.0";
+        response["id"] = root["id"];
         response["result"] = number;
 
         // 每修改一次点就重新写入配置
         write_cfg();
-        // create_point_maps();
-        // modbus_write_point_maps();
+        create_point_maps();
+        modbus_write_point_maps();
     }
 
     return true;
@@ -106,8 +147,8 @@ bool IndustrialControlRpc::server_remove_point(const Json::Value& root, Json::Va
 
         // 每修改一次点就重新写入配置
         write_cfg();
-        //create_point_maps();
-        //modbus_write_point_maps();
+        create_point_maps();
+        modbus_write_point_maps();
     }
 
     return true;
@@ -157,8 +198,8 @@ bool IndustrialControlRpc::server_modify_point(const Json::Value& root, Json::Va
 
         // 每修改一次点就重新写入配置
         write_cfg();
-        //create_point_maps();
-        //modbus_write_point_maps();
+        create_point_maps();
+        modbus_write_point_maps();
     }
 
     return true;

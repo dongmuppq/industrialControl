@@ -66,6 +66,14 @@ int main(int argc, char* argv[]) {
     }
 
     // 注册 rpc 函数
+    server.AddMethod(new Json::Rpc::RpcMethod<IndustrialControlRpc>(a, &IndustrialControlRpc::server_start_update,
+        std::string("start_update")));
+    server.AddMethod(new Json::Rpc::RpcMethod<IndustrialControlRpc>(a, &IndustrialControlRpc::server_get_update_pecent,
+        std::string("get_update_pecent")));
+    // server.AddMethod(new Json::Rpc::RpcMethod<IndustrialControlRpc>(a, &IndustrialControlRpc::server_get_mqttinfo,
+    //     std::string("get_mqttinfo")));
+    // server.AddMethod(new Json::Rpc::RpcMethod<IndustrialControlRpc>(a, &IndustrialControlRpc::server_set_mqttinfo,
+    //     std::string("set_mqttinfo")));
     server.AddMethod(new Json::Rpc::RpcMethod<IndustrialControlRpc>(a, &IndustrialControlRpc::server_get_point_count,
         std::string("get_point_count")));
     server.AddMethod(new Json::Rpc::RpcMethod<IndustrialControlRpc>(a, &IndustrialControlRpc::server_get_next_point,
@@ -76,6 +84,14 @@ int main(int argc, char* argv[]) {
         std::string("remove_point")));
     server.AddMethod(new Json::Rpc::RpcMethod<IndustrialControlRpc>(a, &IndustrialControlRpc::server_modify_point,
         std::string("modify_point")));
+    server.AddMethod(new Json::Rpc::RpcMethod<IndustrialControlRpc>(a, &IndustrialControlRpc::server_read_point,
+        std::string("read_point")));
+    server.AddMethod(new Json::Rpc::RpcMethod<IndustrialControlRpc>(a, &IndustrialControlRpc::server_write_point,
+        std::string("write_point")));
+    server.AddMethod(new Json::Rpc::RpcMethod<IndustrialControlRpc>(a, &IndustrialControlRpc::Print,
+        std::string("print")));
+    server.AddMethod(new Json::Rpc::RpcMethod<IndustrialControlRpc>(a, &IndustrialControlRpc::Notify,
+        std::string("notify")));
 
 
 

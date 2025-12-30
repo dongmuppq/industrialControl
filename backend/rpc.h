@@ -73,6 +73,17 @@ class IndustrialControlRpc
 
 };
 
+/* 添加点
+ * pNewInfo : 新的点信息
+ * 返回值: 添加的点索引
+*/
+int local_add_point(PPointInfo pNewInfo);
+
+/* 删除点
+ * point : 索引
+ */
+void local_remove_point(int point);
+
 /* 获得点的数组
  * 返回值: PPointInfo(数组首地址)
  */
